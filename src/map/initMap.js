@@ -1,0 +1,24 @@
+// Leaflet map initialisation.
+// Kept minimal to respect the PRD's guidance to avoid heavy SDK ecosystems.
+
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+export function initMap(container) {
+  // Defensive: clear any previous contents.
+  container.innerHTML = "";
+
+  const map = L.map(container, {
+    center: [53.4, -8], // Centre of Ireland
+    zoom: 8,
+  });
+
+  // Basic tile layer; can be swapped later if needed.
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19,
+  }).addTo(map);
+
+  return map;
+}
+

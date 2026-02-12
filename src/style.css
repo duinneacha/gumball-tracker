@@ -1,96 +1,161 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
+  color: #111827;
+  background-color: #f3f4f6;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  min-height: 100vh;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #f7df1eaa);
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-.card {
-  padding: 2em;
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: #111827;
+  color: #f9fafb;
 }
 
-.read-the-docs {
-  color: #888;
+.app-title {
+  font-weight: 600;
+  font-size: 1rem;
 }
 
-button {
-  border-radius: 8px;
+.app-modes {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.mode-btn {
+  border-radius: 999px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  background-color: transparent;
+  color: #e5e7eb;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+.mode-btn.active {
+  background-color: #f97316;
+  color: #111827;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-container {
+  flex: 1;
+  min-height: 300px;
+}
+
+.side-panel {
+  border-top: 1px solid #e5e7eb;
+  padding: 0.5rem 1rem;
+  background-color: #ffffff;
+  min-height: 3rem;
+}
+
+.side-panel-maintenance .import-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.side-panel-maintenance .import-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+.side-panel-maintenance .import-label span {
+  padding: 0.4rem 0.75rem;
+  background-color: #f97316;
+  color: #111827;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.side-panel-maintenance .import-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+.side-panel-maintenance .import-status-ok {
+  color: #059669;
+}
+.side-panel-maintenance .import-status-err {
+  color: #dc2626;
+}
+
+.snackbar-host {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 40;
+}
+
+.fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  border: none;
+  background-color: #f97316;
+  color: #111827;
+  font-weight: 700;
+  font-size: 1.4rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3);
+  cursor: pointer;
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    flex-direction: row;
   }
-  a:hover {
-    color: #747bff;
+
+  .map-container {
+    flex: 2;
   }
-  button {
-    background-color: #f9f9f9;
+
+  .side-panel {
+    flex: 1;
+    border-top: none;
+    border-left: 1px solid #e5e7eb;
   }
 }
+
