@@ -23,6 +23,9 @@ export function createApp(rootElement) {
     runSession: null,
   };
 
+  // Ref for import-success callback (set after mapController exists).
+  const onImportSuccessRef = { current: null };
+
   // Build the basic shell layout: header, map container, panels.
   const shell = createShellLayout(rootElement, {
     initialMode: state.mode,
@@ -31,13 +34,17 @@ export function createApp(rootElement) {
       mapController.setMode(mode);
       if (mode === "maintenance") {
         const locations = await getAllFromStore("locations");
-        mapController.renderLocations(locations, { showDeleted: false });
+        mapController.renderLocations(locations, {
+          showDeleted: false,
+          forceFitBounds: true,
+        });
       }
     },
     onRunChange: (runId) => {
       state.selectedRunId = runId;
       mapController.setRun(runId);
     },
+    onImportSuccessRef,
   });
 
   // Initialize storage, then run first-run seed if locations store is empty.
@@ -75,5 +82,16 @@ export function createApp(rootElement) {
 
   // Initial render for the current mode.
   mapController.setMode(state.mode);
+
+  // After import, refresh map if in Maintenance so markers appear immediately.
+  onImportSuccessRef.current = async () => {
+    const locations = await getAllFromStore("locations");
+    if (state.mode === MODES.MAINTENANCE) {
+      mapController.renderLocations(locations, {
+        showDeleted: false,
+        forceFitBounds: true,
+      });
+    }
+  };
 }
 

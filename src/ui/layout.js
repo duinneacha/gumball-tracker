@@ -3,7 +3,8 @@
 
 import { createFab } from "./shared/fab.js";
 
-function renderSidePanelContent(sidePanel, mode) {
+function renderSidePanelContent(sidePanel, mode, options = {}) {
+  const { onImportSuccessRef } = options;
   sidePanel.innerHTML = "";
   if (mode === "maintenance") {
     const wrap = document.createElement("div");
@@ -43,6 +44,9 @@ function renderSidePanelContent(sidePanel, mode) {
           status.textContent = `Imported ${result.count} location(s).`;
         }
         status.className = "import-status import-status-ok";
+        if (typeof onImportSuccessRef?.current === "function") {
+          await onImportSuccessRef.current();
+        }
       } catch (err) {
         status.textContent = err instanceof Error ? err.message : "Import failed.";
         status.className = "import-status import-status-err";
@@ -53,7 +57,7 @@ function renderSidePanelContent(sidePanel, mode) {
 }
 
 export function createShellLayout(root, options) {
-  const { initialMode, onModeChange } = options;
+  const { initialMode, onModeChange, onImportSuccessRef } = options;
 
   root.innerHTML = "";
 
@@ -99,7 +103,7 @@ export function createShellLayout(root, options) {
   root.appendChild(app);
 
   let currentMode = initialMode;
-  renderSidePanelContent(sidePanel, initialMode);
+  renderSidePanelContent(sidePanel, initialMode, { onImportSuccessRef });
 
   // Mode button wiring
   header.querySelectorAll(".mode-btn").forEach((btn) => {
@@ -111,7 +115,7 @@ export function createShellLayout(root, options) {
       header.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       currentMode = mode;
-      renderSidePanelContent(sidePanel, mode);
+      renderSidePanelContent(sidePanel, mode, { onImportSuccessRef });
       if (typeof onModeChange === "function") {
         onModeChange(mode);
       }
@@ -133,7 +137,7 @@ export function createShellLayout(root, options) {
       return sheetHost;
     },
     refreshSidePanel() {
-      renderSidePanelContent(sidePanel, currentMode);
+      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef });
     },
     showError(message) {
       // Minimal inline error for now; can be replaced with snackbar.

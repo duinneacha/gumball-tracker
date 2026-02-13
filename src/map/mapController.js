@@ -29,13 +29,18 @@ export function createMapController(container, initialState) {
 
   /**
    * Render location markers. Clears existing markers, then adds one marker per
-   * location (active, or deleted when showDeleted is true). Fits map bounds
-   * to markers on first render.
+   * location (active, or deleted when showDeleted is true). Optionally fits
+   * map bounds to markers.
    * @param {Array<{ id: string, latitude: number, longitude: number, status: string }>} locations
-   * @param {{ showDeleted?: boolean }} [opts]
+   * @param {{ showDeleted?: boolean, forceFitBounds?: boolean }} [opts]
    */
   function renderLocations(locations, opts = {}) {
     const showDeleted = opts.showDeleted === true;
+    const forceFitBounds = opts.forceFitBounds === true;
+
+    if (forceFitBounds) {
+      hasFittedBounds = false;
+    }
 
     locationsLayer.clearLayers();
 
@@ -59,8 +64,9 @@ export function createMapController(container, initialState) {
       locationsLayer.addTo(map);
     }
 
-    if (visible.length > 0 && !hasFittedBounds) {
-      map.fitBounds(locationsLayer.getBounds(), { padding: [24, 24], maxZoom: 14 });
+    const shouldFit = (visible.length > 0 && !hasFittedBounds) || forceFitBounds;
+    if (shouldFit && locationsLayer.getLayers().length > 0) {
+      map.fitBounds(locationsLayer.getBounds(), { padding: [40, 40], maxZoom: 14 });
       hasFittedBounds = true;
     }
   }
