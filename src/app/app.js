@@ -23,22 +23,16 @@ export function createApp(rootElement) {
     runSession: null,
   };
 
-  // Ref for import-success callback (set after mapController exists).
   const onImportSuccessRef = { current: null };
+  const refreshMaintenanceMapRef = { current: null };
 
-  // Build the basic shell layout: header, map container, panels.
   const shell = createShellLayout(rootElement, {
     initialMode: state.mode,
     onModeChange: async (mode) => {
       state.mode = mode;
       mapController.setMode(mode);
-      if (mode === "maintenance") {
-        const locations = await getAllFromStore("locations");
-        mapController.renderLocations(locations, {
-          showDeleted: false,
-          forceFitBounds: true,
-          useCircleMarkers: true,
-        });
+      if (mode === "maintenance" && typeof refreshMaintenanceMapRef.current === "function") {
+        await refreshMaintenanceMapRef.current();
       }
     },
     onRunChange: (runId) => {
@@ -55,13 +49,8 @@ export function createApp(rootElement) {
       if (result.imported > 0) {
         // eslint-disable-next-line no-console
         console.log(`First-run seed: imported ${result.imported} locations.`);
-        if (state.mode === MODES.MAINTENANCE) {
-          const locations = await getAllFromStore("locations");
-          mapController.renderLocations(locations, {
-            showDeleted: false,
-            forceFitBounds: true,
-            useCircleMarkers: true,
-          });
+        if (typeof refreshMaintenanceMapRef.current === "function") {
+          await refreshMaintenanceMapRef.current();
         }
       }
     })
@@ -89,19 +78,19 @@ export function createApp(rootElement) {
     },
   });
 
-  // Initial render for the current mode.
   mapController.setMode(state.mode);
 
-  // After import, refresh map if in Maintenance so markers appear immediately.
-  onImportSuccessRef.current = async () => {
+  async function refreshMaintenanceMap() {
+    if (state.mode !== MODES.MAINTENANCE) return;
     const locations = await getAllFromStore("locations");
-    if (state.mode === MODES.MAINTENANCE) {
-      mapController.renderLocations(locations, {
-        showDeleted: false,
-        forceFitBounds: true,
-        useCircleMarkers: true,
-      });
-    }
-  };
+    mapController.renderLocations(locations, {
+      showDeleted: false,
+      forceFitBounds: true,
+      useCircleMarkers: true,
+    });
+  }
+
+  refreshMaintenanceMapRef.current = refreshMaintenanceMap;
+  onImportSuccessRef.current = refreshMaintenanceMap;
 }
 

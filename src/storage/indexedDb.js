@@ -15,10 +15,7 @@ export function initStorage() {
 }
 
 export function getDb() {
-  if (!dbPromise) {
-    dbPromise = openDatabase();
-  }
-  return dbPromise;
+  return initStorage();
 }
 
 function openDatabase() {
@@ -56,7 +53,12 @@ function openDatabase() {
     };
 
     request.onsuccess = () => {
-      resolve(request.result);
+      const db = request.result;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[IndexedDB] opened db.name=${db.name} db.version=${db.version} stores=[${Array.from(db.objectStoreNames).join(", ")}]`
+      );
+      resolve(db);
     };
 
     request.onerror = () => {
@@ -95,6 +97,17 @@ export function getEntity(storeName, key) {
 
 export function getAllFromStore(storeName) {
   return runTransaction(storeName, "readonly", (store) => store.getAll());
+}
+
+export async function countStore(storeName) {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const req = store.count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
 
 

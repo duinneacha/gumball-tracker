@@ -4,7 +4,7 @@
  * PRD Addendum: Initial Garmin Waypoints Seed.
  */
 
-import { getDb, putEntity, getAllFromStore } from "./indexedDb.js";
+import { putEntity, getAllFromStore } from "./indexedDb.js";
 
 /** Default seed URL (bundled in public/). */
 export const DEFAULT_SEED_URL = "/garmin_waypoints_locations_seed.json";
