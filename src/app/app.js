@@ -51,10 +51,18 @@ export function createApp(rootElement) {
   // Initialize storage, then run first-run seed if locations store is empty.
   initStorage()
     .then(() => import("../storage/seed.js").then((m) => m.runFirstRunSeedIfEmpty()))
-    .then((result) => {
+    .then(async (result) => {
       if (result.imported > 0) {
         // eslint-disable-next-line no-console
         console.log(`First-run seed: imported ${result.imported} locations.`);
+        if (state.mode === MODES.MAINTENANCE) {
+          const locations = await getAllFromStore("locations");
+          mapController.renderLocations(locations, {
+            showDeleted: false,
+            forceFitBounds: true,
+            useCircleMarkers: true,
+          });
+        }
       }
     })
     .catch((err) => {
