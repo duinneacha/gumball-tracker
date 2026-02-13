@@ -30,14 +30,16 @@ export function createMapController(container, initialState) {
   /**
    * Render location markers. Clears existing markers, then adds one marker per
    * location (active, or deleted when showDeleted is true). Optionally fits
-   * map bounds to markers.
+   * map bounds to markers. useCircleMarkers renders L.circleMarker (no icon assets).
    * @param {Array<{ id: string, latitude: number, longitude: number, status: string }>} locations
-   * @param {{ showDeleted?: boolean, forceFitBounds?: boolean }} [opts]
+   * @param {{ showDeleted?: boolean, forceFitBounds?: boolean, useCircleMarkers?: boolean }} [opts]
    */
   function renderLocations(locations, opts = {}) {
     const showDeleted = opts.showDeleted === true;
     const forceFitBounds = opts.forceFitBounds === true;
+    const useCircleMarkers = opts.useCircleMarkers === true;
 
+    const inputCount = Array.isArray(locations) ? locations.length : 0;
     if (forceFitBounds) {
       hasFittedBounds = false;
     }
@@ -50,19 +52,29 @@ export function createMapController(container, initialState) {
         )
       : [];
 
+    // eslint-disable-next-line no-console
+    console.log(`[map] renderLocations input=${inputCount} visible=${visible.length}`);
+
     for (const loc of visible) {
-      const marker = L.marker([loc.latitude, loc.longitude]);
-      marker.on("click", () => {
+      const layer = useCircleMarkers
+        ? L.circleMarker([loc.latitude, loc.longitude], { radius: 6 })
+        : L.marker([loc.latitude, loc.longitude]);
+      layer.on("click", () => {
         if (typeof onLocationSelected === "function") {
           onLocationSelected(loc);
         }
       });
-      locationsLayer.addLayer(marker);
+      locationsLayer.addLayer(layer);
     }
 
     if (!map.hasLayer(locationsLayer)) {
       locationsLayer.addTo(map);
     }
+
+    const layerCount = locationsLayer.getLayers().length;
+    const layerOnMap = map.hasLayer(locationsLayer);
+    // eslint-disable-next-line no-console
+    console.log(`[map] layerCount=${layerCount} layerOnMap=${layerOnMap}`);
 
     const shouldFit = (visible.length > 0 && !hasFittedBounds) || forceFitBounds;
     if (shouldFit && locationsLayer.getLayers().length > 0) {

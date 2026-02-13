@@ -37,6 +37,7 @@ export function createApp(rootElement) {
         mapController.renderLocations(locations, {
           showDeleted: false,
           forceFitBounds: true,
+          useCircleMarkers: true,
         });
       }
     },
@@ -90,6 +91,7 @@ export function createApp(rootElement) {
       mapController.renderLocations(locations, {
         showDeleted: false,
         forceFitBounds: true,
+        useCircleMarkers: true,
       });
     }
   };
