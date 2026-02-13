@@ -7,6 +7,7 @@ import { initMap } from "./initMap.js";
 
 export function createMapController(container, initialState) {
   const map = initMap(container);
+  const onLocationSelected = initialState.onLocationSelected;
 
   const state = {
     mode: initialState.mode,
@@ -46,6 +47,11 @@ export function createMapController(container, initialState) {
 
     for (const loc of visible) {
       const marker = L.marker([loc.latitude, loc.longitude]);
+      marker.on("click", () => {
+        if (typeof onLocationSelected === "function") {
+          onLocationSelected(loc);
+        }
+      });
       locationsLayer.addLayer(marker);
     }
 

@@ -7,6 +7,7 @@
 import { initStorage, getAllFromStore } from "../storage/indexedDb.js";
 import { createMapController } from "../map/mapController.js";
 import { createShellLayout } from "../ui/layout.js";
+import { createBottomSheet } from "../ui/bottomSheet.js";
 
 // Simple enum for app modes
 const MODES = {
@@ -54,10 +55,22 @@ export function createApp(rootElement) {
       shell.showError("Storage initialisation failed. App may behave unexpectedly.");
     });
 
+  // Bottom sheet: opens on marker click in Maintenance Mode; read-only details.
+  const bottomSheet = createBottomSheet({
+    sheetHost: shell.getSheetHost(),
+    sidePanel: shell.getSidePanel(),
+    onClose: () => shell.refreshSidePanel(),
+  });
+
   // Create map controller bound to the shell's map container.
   const mapController = createMapController(shell.getMapContainer(), {
     mode: state.mode,
     selectedRunId: state.selectedRunId,
+    onLocationSelected: (location) => {
+      if (state.mode === MODES.MAINTENANCE) {
+        bottomSheet.open(location);
+      }
+    },
   });
 
   // Initial render for the current mode.

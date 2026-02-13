@@ -88,12 +88,17 @@ export function createShellLayout(root, options) {
   const snackbarHost = document.createElement("div");
   snackbarHost.className = "snackbar-host";
 
+  const sheetHost = document.createElement("div");
+  sheetHost.className = "bottom-sheet-host";
+
   app.appendChild(header);
   app.appendChild(main);
   app.appendChild(snackbarHost);
+  app.appendChild(sheetHost);
 
   root.appendChild(app);
 
+  let currentMode = initialMode;
   renderSidePanelContent(sidePanel, initialMode);
 
   // Mode button wiring
@@ -105,6 +110,7 @@ export function createShellLayout(root, options) {
     btn.addEventListener("click", () => {
       header.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
+      currentMode = mode;
       renderSidePanelContent(sidePanel, mode);
       if (typeof onModeChange === "function") {
         onModeChange(mode);
@@ -122,6 +128,12 @@ export function createShellLayout(root, options) {
     },
     getSidePanel() {
       return sidePanel;
+    },
+    getSheetHost() {
+      return sheetHost;
+    },
+    refreshSidePanel() {
+      renderSidePanelContent(sidePanel, currentMode);
     },
     showError(message) {
       // Minimal inline error for now; can be replaced with snackbar.
