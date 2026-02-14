@@ -4,7 +4,7 @@
  * PRD Addendum: Initial Garmin Waypoints Seed.
  */
 
-import { putEntity, getAllFromStore } from "./indexedDb.js";
+import { bulkUpsert, getAllFromStore } from "./indexedDb.js";
 
 /** Default seed URL (bundled in public/). */
 export const DEFAULT_SEED_URL = "/garmin_waypoints_locations_seed.json";
@@ -83,7 +83,7 @@ export async function waypointToLocation(entry) {
 
 /**
  * Import an array of seed/waypoint entries into the locations store.
- * Upserts by id; does not crash on duplicates (existing ids overwritten).
+ * Uses a single bulk transaction; upserts by id; does not crash on duplicates.
  * Does not create runs; all locations remain unassigned.
  * @param {object[]} entries
  * @returns {Promise<number>} number of locations written
@@ -92,13 +92,15 @@ export async function importLocationsFromSeed(entries) {
   if (!Array.isArray(entries)) {
     throw new Error("Seed data must be an array");
   }
-  let count = 0;
+  const locations = [];
   for (const entry of entries) {
     const location = await waypointToLocation(entry);
-    await putEntity("locations", location);
-    count += 1;
+    locations.push(location);
   }
-  return count;
+  if (locations.length > 0) {
+    await bulkUpsert("locations", locations);
+  }
+  return locations.length;
 }
 
 /**
@@ -122,6 +124,10 @@ export async function runFirstRunSeedIfEmpty(seedUrl = DEFAULT_SEED_URL) {
     throw new Error("Seed JSON must be an array or { locations: [] }");
   }
   const imported = await importLocationsFromSeed(array);
+  if (imported > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`[seed] committed locations: ${imported}`);
+  }
   return { imported };
 }
 

@@ -14,7 +14,7 @@ export function createMapController(container, initialState) {
     selectedRunId: initialState.selectedRunId,
   };
 
-  const locationsLayer = L.layerGroup();
+  const locationsLayer = L.featureGroup();
   let hasFittedBounds = false;
 
   function setMode(mode) {

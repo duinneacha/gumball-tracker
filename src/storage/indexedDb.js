@@ -91,12 +91,50 @@ export function deleteEntity(storeName, key) {
   return runTransaction(storeName, "readwrite", (store) => store.delete(key));
 }
 
-export function getEntity(storeName, key) {
-  return runTransaction(storeName, "readonly", (store) => store.get(key));
+export async function getEntity(storeName, key) {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-export function getAllFromStore(storeName) {
-  return runTransaction(storeName, "readonly", (store) => store.getAll());
+export async function getAllFromStore(storeName) {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Bulk upsert items into a store in a single readwrite transaction.
+ * Resolves when the transaction commits; rejects on tx.onerror/tx.onabort.
+ * @param {string} storeName
+ * @param {object[]} items
+ * @returns {Promise<void>}
+ */
+export async function bulkUpsert(storeName, items) {
+  if (!Array.isArray(items)) {
+    throw new Error("bulkUpsert requires an array of items");
+  }
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error("Transaction aborted"));
+    for (const item of items) {
+      store.put(item);
+    }
+  });
 }
 
 export async function countStore(storeName) {
