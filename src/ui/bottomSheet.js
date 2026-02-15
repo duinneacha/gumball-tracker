@@ -1,54 +1,14 @@
 /**
  * Reusable Bottom Sheet UI component.
  * Mobile: slides up from bottom (50–70% height). Tablet: uses side panel area.
- * Displays arbitrary content; open/close programmatically with close control and swipe-down (mobile).
+ * Dual-mode: VIEW (read-only + Edit/Delete) and EDIT (editable + Save/Cancel).
  */
 
 const TABLET_BREAKPOINT_PX = 768;
+const SERVICE_FREQUENCIES = ["weekly", "fortnightly", "monthly", "adhoc"];
 
 function isTablet() {
   return typeof window !== "undefined" && window.matchMedia(`(min-width: ${TABLET_BREAKPOINT_PX}px)`).matches;
-}
-
-function renderLocationContent(location) {
-  const fragment = document.createDocumentFragment();
-
-  const header = document.createElement("div");
-  header.className = "bottom-sheet-header";
-  const title = document.createElement("h2");
-  title.className = "bottom-sheet-title";
-  title.textContent = "Location details";
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "bottom-sheet-close";
-  closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.textContent = "×";
-  header.appendChild(title);
-  header.appendChild(closeBtn);
-
-  const content = document.createElement("div");
-  content.className = "bottom-sheet-content";
-  const name = location.name != null ? String(location.name) : "—";
-  const lat = location.latitude != null ? Number(location.latitude) : "";
-  const lon = location.longitude != null ? Number(location.longitude) : "";
-  const serviceFrequency = location.serviceFrequency != null ? String(location.serviceFrequency) : "—";
-  const productType = location.productType != null ? String(location.productType) : "—";
-  const status = location.status != null ? String(location.status) : "—";
-
-  content.innerHTML = `
-    <dl class="bottom-sheet-details">
-      <dt>Name</dt><dd>${escapeHtml(name)}</dd>
-      <dt>Latitude</dt><dd>${escapeHtml(String(lat))}</dd>
-      <dt>Longitude</dt><dd>${escapeHtml(String(lon))}</dd>
-      <dt>Service Frequency</dt><dd>${escapeHtml(serviceFrequency)}</dd>
-      <dt>Product Type</dt><dd>${escapeHtml(productType)}</dd>
-      <dt>Status</dt><dd>${escapeHtml(status)}</dd>
-    </dl>
-  `;
-
-  fragment.appendChild(header);
-  fragment.appendChild(content);
-  return { fragment, closeBtn };
 }
 
 function escapeHtml(str) {
@@ -57,21 +17,130 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function renderViewMode(location, callbacks) {
+  const content = document.createElement("div");
+  content.className = "bottom-sheet-content";
+  const name = location.name != null ? String(location.name) : "—";
+  const serviceFrequency = location.serviceFrequency != null ? String(location.serviceFrequency) : "—";
+  const productType = location.productType != null ? String(location.productType) : "—";
+  const notes = location.notes != null ? String(location.notes) : "—";
+  const status = location.status != null ? String(location.status) : "—";
+
+  content.innerHTML = `
+    <dl class="bottom-sheet-details">
+      <dt>Name</dt><dd>${escapeHtml(name)}</dd>
+      <dt>Service Frequency</dt><dd>${escapeHtml(serviceFrequency)}</dd>
+      <dt>Product Type</dt><dd>${escapeHtml(productType)}</dd>
+      <dt>Notes</dt><dd>${escapeHtml(notes)}</dd>
+      <dt>Status</dt><dd>${escapeHtml(status)}</dd>
+    </dl>
+    <div class="bottom-sheet-actions">
+      <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="edit">Edit</button>
+      <button type="button" class="bottom-sheet-btn bottom-sheet-btn-danger" data-action="delete">Delete</button>
+    </div>
+  `;
+
+  content.querySelector('[data-action="edit"]')?.addEventListener("click", () => callbacks.onEdit());
+  content.querySelector('[data-action="delete"]')?.addEventListener("click", () => callbacks.onDelete());
+  return content;
+}
+
+function renderEditMode(draftLocation, callbacks) {
+  const content = document.createElement("div");
+  content.className = "bottom-sheet-content";
+  const name = draftLocation.name != null ? String(draftLocation.name) : "";
+  const serviceFrequency = draftLocation.serviceFrequency != null && SERVICE_FREQUENCIES.includes(draftLocation.serviceFrequency)
+    ? draftLocation.serviceFrequency
+    : "adhoc";
+  const productType = draftLocation.productType != null ? String(draftLocation.productType) : "";
+  const notes = draftLocation.notes != null ? String(draftLocation.notes) : "";
+
+  const options = SERVICE_FREQUENCIES.map(
+    (f) => `<option value="${escapeHtml(f)}"${f === serviceFrequency ? " selected" : ""}>${escapeHtml(f)}</option>`
+  ).join("");
+
+  content.innerHTML = `
+    <form class="bottom-sheet-form">
+      <label class="bottom-sheet-field">
+        <span class="bottom-sheet-label">Name</span>
+        <input type="text" name="name" value="${escapeHtml(name)}" required autocomplete="off" />
+      </label>
+      <label class="bottom-sheet-field">
+        <span class="bottom-sheet-label">Service Frequency</span>
+        <select name="serviceFrequency">
+          ${options}
+        </select>
+      </label>
+      <label class="bottom-sheet-field">
+        <span class="bottom-sheet-label">Product Type</span>
+        <input type="text" name="productType" value="${escapeHtml(productType)}" autocomplete="off" />
+      </label>
+      <label class="bottom-sheet-field">
+        <span class="bottom-sheet-label">Notes</span>
+        <textarea name="notes" rows="3">${escapeHtml(notes)}</textarea>
+      </label>
+      <div class="bottom-sheet-actions">
+        <button type="submit" class="bottom-sheet-btn bottom-sheet-btn-primary">Save</button>
+        <button type="button" class="bottom-sheet-btn bottom-sheet-btn-secondary" data-action="cancel">Cancel</button>
+      </div>
+    </form>
+  `;
+
+  content.querySelector("form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const nameVal = (form.querySelector('[name="name"]')?.value ?? "").trim();
+    if (!nameVal) return;
+    const updated = {
+      ...draftLocation,
+      name: nameVal,
+      serviceFrequency: form.querySelector('[name="serviceFrequency"]')?.value ?? "adhoc",
+      productType: (form.querySelector('[name="productType"]')?.value ?? "").trim(),
+      notes: (form.querySelector('[name="notes"]')?.value ?? "").trim(),
+    };
+    callbacks.onSave(updated);
+  });
+  content.querySelector('[data-action="cancel"]')?.addEventListener("click", () => callbacks.onCancel());
+  return content;
+}
+
+function renderHeader(closeBtn) {
+  const header = document.createElement("div");
+  header.className = "bottom-sheet-header";
+  header.innerHTML = `
+    <h2 class="bottom-sheet-title">Location details</h2>
+  `;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "bottom-sheet-close";
+  btn.setAttribute("aria-label", "Close");
+  btn.textContent = "×";
+  header.appendChild(btn);
+  if (closeBtn) closeBtn(btn);
+  return header;
+}
+
 /**
  * @param {object} options
- * @param {HTMLElement} options.sheetHost - Container for mobile sliding panel (e.g. bottom-sheet-host).
- * @param {HTMLElement} options.sidePanel - Side panel element for tablet layout.
- * @param {() => void} options.onClose - Called when sheet is closed (e.g. to restore side panel content).
+ * @param {HTMLElement} options.sheetHost - Container for mobile sliding panel
+ * @param {HTMLElement} options.sidePanel - Side panel element for tablet layout
+ * @param {() => void} options.onClose - Called when sheet is closed
+ * @param {(location: object) => void} [options.onSave] - Called with updated location on Save
+ * @param {(location: object) => void} [options.onDelete] - Called with location on Delete
  */
 export function createBottomSheet(options) {
-  const { sheetHost, sidePanel, onClose } = options;
+  const { sheetHost, sidePanel, onClose, onSave, onDelete } = options;
   let currentWrapper = null;
   let usedTablet = false;
   let touchStartY = 0;
+  let currentLocation = null;
+  let mode = "view";
 
-  function close() {
+  function doClose() {
     const wrapper = currentWrapper;
     currentWrapper = null;
+    currentLocation = null;
+    mode = "view";
     if (!wrapper) return;
     if (usedTablet) {
       sidePanel.innerHTML = "";
@@ -83,9 +152,7 @@ export function createBottomSheet(options) {
       wrapper.addEventListener(
         "transitionend",
         () => {
-          if (wrapper.parentNode) {
-            wrapper.remove();
-          }
+          if (wrapper.parentNode) wrapper.remove();
         },
         { once: true }
       );
@@ -93,67 +160,82 @@ export function createBottomSheet(options) {
   }
 
   function setupCloseButton(closeBtn) {
-    closeBtn.addEventListener("click", () => close());
+    closeBtn.addEventListener("click", () => doClose());
   }
 
   function setupSwipeDown(wrapper) {
-    wrapper.addEventListener(
-      "touchstart",
-      (e) => {
-        touchStartY = e.touches[0].clientY;
+    wrapper.addEventListener("touchstart", (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
+    wrapper.addEventListener("touchend", (e) => {
+      const delta = e.changedTouches[0].clientY - touchStartY;
+      if (delta > 80) doClose();
+    }, { passive: true });
+  }
+
+  function renderContentArea() {
+    const contentSlot = currentWrapper?.querySelector(".bottom-sheet-content-slot");
+    if (!contentSlot || !currentLocation) return;
+    contentSlot.innerHTML = "";
+    const callbacks = {
+      onEdit: () => {
+        mode = "edit";
+        renderContentArea();
       },
-      { passive: true }
-    );
-    wrapper.addEventListener(
-      "touchend",
-      (e) => {
-        const touchEndY = e.changedTouches[0].clientY;
-        const delta = touchEndY - touchStartY;
-        if (delta > 80) {
-          close();
-        }
+      onCancel: () => {
+        mode = "view";
+        renderContentArea();
       },
-      { passive: true }
-    );
+      onSave: (updated) => {
+        if (typeof onSave === "function") onSave(updated);
+        currentLocation = updated;
+        mode = "view";
+        renderContentArea();
+      },
+      onDelete: () => {
+        if (typeof onDelete === "function") onDelete(currentLocation);
+        doClose();
+      },
+    };
+    const content = mode === "view"
+      ? renderViewMode(currentLocation, callbacks)
+      : renderEditMode({ ...currentLocation }, callbacks);
+    contentSlot.appendChild(content);
   }
 
   /**
-   * Open the bottom sheet with read-only location details.
-   * @param {object} location - { id, name, latitude, longitude, serviceFrequency, productType, status }
+   * Open the bottom sheet with location details.
+   * @param {object} location - { id, name, latitude, longitude, serviceFrequency, productType, notes, status }
    */
   function open(location) {
     if (!location || typeof location !== "object") return;
 
+    currentLocation = { ...location };
+    mode = "view";
     usedTablet = isTablet();
+
+    const contentSlot = document.createElement("div");
+    contentSlot.className = "bottom-sheet-content-slot";
+
+    const wrapper = document.createElement("div");
+    wrapper.className = usedTablet ? "bottom-sheet bottom-sheet-tablet" : "bottom-sheet";
+    wrapper.appendChild(renderHeader((btn) => setupCloseButton(btn)));
+    wrapper.appendChild(contentSlot);
 
     if (usedTablet) {
       sidePanel.innerHTML = "";
-      const { fragment, closeBtn } = renderLocationContent(location);
-      const wrapper = document.createElement("div");
-      wrapper.className = "bottom-sheet bottom-sheet-tablet";
-      wrapper.appendChild(fragment);
       sidePanel.appendChild(wrapper);
-      currentWrapper = wrapper;
-      setupCloseButton(closeBtn);
-      return;
+    } else {
+      sheetHost.innerHTML = "";
+      sheetHost.appendChild(wrapper);
+      setupSwipeDown(wrapper);
+      requestAnimationFrame(() => wrapper.classList.add("open"));
     }
 
-    const { fragment, closeBtn } = renderLocationContent(location);
-    const wrapper = document.createElement("div");
-    wrapper.className = "bottom-sheet";
-    wrapper.appendChild(fragment);
-    sheetHost.innerHTML = "";
-    sheetHost.appendChild(wrapper);
     currentWrapper = wrapper;
-    setupCloseButton(closeBtn);
-    setupSwipeDown(wrapper);
-    requestAnimationFrame(() => {
-      wrapper.classList.add("open");
-    });
+    renderContentArea();
   }
 
   return {
     open,
-    close,
+    close: doClose,
   };
 }

@@ -136,6 +136,9 @@ export function createShellLayout(root, options) {
     getSheetHost() {
       return sheetHost;
     },
+    getSnackbarHost() {
+      return snackbarHost;
+    },
     refreshSidePanel() {
       renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef });
     },

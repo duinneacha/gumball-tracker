@@ -4,10 +4,11 @@
 // - Wiring the Leaflet map
 // - Managing high-level modes: maintenance, operation, dashboard
 
-import { initStorage, getAllFromStore } from "../storage/indexedDb.js";
+import { initStorage, getAllFromStore, putEntity } from "../storage/indexedDb.js";
 import { createMapController } from "../map/mapController.js";
 import { createShellLayout } from "../ui/layout.js";
 import { createBottomSheet } from "../ui/bottomSheet.js";
+import { showSnackbar } from "../ui/snackbar.js";
 
 // Simple enum for app modes
 const MODES = {
@@ -60,11 +61,49 @@ export function createApp(rootElement) {
       shell.showError("Storage initialisation failed. App may behave unexpectedly.");
     });
 
-  // Bottom sheet: opens on marker click in Maintenance Mode; read-only details.
+  // Bottom sheet: opens on marker click in Maintenance Mode; editable with Save/Delete.
+  const snackbarHost = shell.getSnackbarHost();
   const bottomSheet = createBottomSheet({
     sheetHost: shell.getSheetHost(),
     sidePanel: shell.getSidePanel(),
     onClose: () => shell.refreshSidePanel(),
+    onSave: async (updatedLocation) => {
+      if (!updatedLocation?.name?.trim()) return;
+      const location = {
+        id: updatedLocation.id,
+        latitude: updatedLocation.latitude,
+        longitude: updatedLocation.longitude,
+        name: updatedLocation.name.trim(),
+        serviceFrequency: updatedLocation.serviceFrequency ?? "adhoc",
+        productType: updatedLocation.productType ?? "",
+        notes: updatedLocation.notes ?? "",
+        status: updatedLocation.status ?? "active",
+      };
+      await putEntity("locations", location);
+      if (typeof refreshMaintenanceMapRef.current === "function") {
+        await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+      }
+      showSnackbar(snackbarHost, "Location updated");
+    },
+    onDelete: async (location) => {
+      const previousStatus = location.status ?? "active";
+      const deleted = { ...location, status: "deleted" };
+      await putEntity("locations", deleted);
+      if (typeof refreshMaintenanceMapRef.current === "function") {
+        await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+      }
+      showSnackbar(snackbarHost, "Location deleted", {
+        undoLabel: "Undo",
+        duration: 5000,
+        onUndo: async () => {
+          const restored = { ...deleted, status: previousStatus };
+          await putEntity("locations", restored);
+          if (typeof refreshMaintenanceMapRef.current === "function") {
+            await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+          }
+        },
+      });
+    },
   });
 
   // Create map controller bound to the shell's map container.
@@ -80,12 +119,12 @@ export function createApp(rootElement) {
 
   mapController.setMode(state.mode);
 
-  async function refreshMaintenanceMap() {
+  async function refreshMaintenanceMap(opts = {}) {
     if (state.mode !== MODES.MAINTENANCE) return;
     const locations = await getAllFromStore("locations");
     mapController.renderLocations(locations, {
       showDeleted: false,
-      forceFitBounds: true,
+      forceFitBounds: opts.forceFitBounds !== false,
       useCircleMarkers: true,
     });
   }
