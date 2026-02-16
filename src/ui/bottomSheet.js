@@ -240,7 +240,7 @@ export function createBottomSheet(options) {
 
     currentLocation = { ...location };
     mode = "view";
-    openContext = openOptions.context === "operation" ? "operation" : "maintenance";
+    openContext = openOptions.context === "operation" ? "operation" : (openOptions.context === "disruption" ? "disruption" : "maintenance");
     usedTablet = isTablet();
 
     const contentSlot = document.createElement("div");

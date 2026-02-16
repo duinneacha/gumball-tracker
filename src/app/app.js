@@ -164,7 +164,9 @@ export function createApp(rootElement) {
       shell.refreshSidePanel();
       if (mode === MODES.MAINTENANCE || mode === MODES.OPERATION) {
         requestAnimationFrame(() => {
-          mapController.invalidateSize();
+          requestAnimationFrame(() => {
+            mapController.invalidateSize();
+          });
         });
       }
     },
@@ -311,7 +313,7 @@ export function createApp(rootElement) {
     onLocationSelected: (location) => {
       if (state.mode === MODES.MAINTENANCE) {
         mapController.setSelectedLocationId(location.id);
-        bottomSheet.open(location);
+        bottomSheet.open(location, { context: "maintenance" });
       }
       if (state.mode === MODES.OPERATION && !state.isDisruptionMode) {
         mapController.setSelectedLocationId(location.id);

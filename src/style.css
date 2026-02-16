@@ -114,6 +114,12 @@ body {
   display: none !important;
 }
 
+/* Ensure map and side panel hide reliably when [hidden] (V2.0.1 regression fix) */
+.map-container[hidden],
+.side-panel[hidden] {
+  display: none !important;
+}
+
 .dashboard-panel {
   display: flex;
   flex-direction: column;
@@ -254,6 +260,7 @@ body {
   flex: 1;
   min-height: 300px;
   position: relative;
+  touch-action: manipulation; /* Reduce 300ms tap delay on mobile (V2.0.1) */
 }
 
 /* Center on me (GPS) – bottom-right of map (PRD V2.0) */

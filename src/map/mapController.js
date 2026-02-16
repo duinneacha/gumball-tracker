@@ -18,6 +18,9 @@ export function createMapController(container, initialState) {
   const layerById = {};
   let hasFittedBounds = false;
   let selectedLocationId = null;
+  let lastTouchTapTime = 0;
+  const TOUCH_MOVE_THRESHOLD_PX = 15;
+  const TOUCH_CLICK_SUPPRESS_MS = 400;
 
   // GPS "You Are Here" marker (PRD V2.0) – separate layer, no interaction
   const gpsLayer = L.featureGroup();
@@ -137,7 +140,7 @@ export function createMapController(container, initialState) {
         });
       }
 
-      layer.on("click", () => {
+      function triggerSelect() {
         if (useCircleMarkers) {
           applyMarkerStyle(layer, loc.id, true, true, visitedSet.has(loc.id), isSuggestion);
           setTimeout(() => {
@@ -147,7 +150,32 @@ export function createMapController(container, initialState) {
         if (typeof onLocationSelected === "function") {
           onLocationSelected(loc);
         }
+      }
+
+      layer.on("click", () => {
+        if (Date.now() - lastTouchTapTime < TOUCH_CLICK_SUPPRESS_MS) return;
+        triggerSelect();
       });
+
+      let touchStartX = 0;
+      let touchStartY = 0;
+      layer.on("touchstart", (e) => {
+        if (e.originalEvent?.touches?.length === 1) {
+          touchStartX = e.originalEvent.touches[0].clientX;
+          touchStartY = e.originalEvent.touches[0].clientY;
+        }
+      }, { passive: true });
+      layer.on("touchend", (e) => {
+        if (e.originalEvent?.changedTouches?.length !== 1) return;
+        const t = e.originalEvent.changedTouches[0];
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+        if (dx * dx + dy * dy <= TOUCH_MOVE_THRESHOLD_PX * TOUCH_MOVE_THRESHOLD_PX) {
+          lastTouchTapTime = Date.now();
+          e.originalEvent?.preventDefault?.();
+          triggerSelect();
+        }
+      }, { passive: false });
 
       if (useCircleMarkers) {
         layerById[loc.id] = layer;
