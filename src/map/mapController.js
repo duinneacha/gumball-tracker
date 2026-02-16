@@ -19,6 +19,12 @@ export function createMapController(container, initialState) {
   let hasFittedBounds = false;
   let selectedLocationId = null;
 
+  // GPS "You Are Here" marker (PRD V2.0) – separate layer, no interaction
+  const gpsLayer = L.featureGroup();
+  let gpsMarker = null;
+  let gpsAccuracyCircle = null;
+  let lastGpsPosition = null;
+
   function setMode(mode) {
     state.mode = mode;
     // In future, adjust visible layers/interaction based on mode.
@@ -75,49 +81,67 @@ export function createMapController(container, initialState) {
 
     const baseRadius = 6;
     const hoverRadius = 7;
+    const suggestionRadius = 8;
     const selectedWeight = 3;
     const defaultWeight = 2;
     const visitedFill = "#9ca3af";
     const visitedStroke = "#6b7280";
+    const suggestionFill = "#3b82f6";
+    const suggestionStroke = "#ffffff";
+    const suggestionSet = opts.suggestionLocationIds instanceof Set
+      ? opts.suggestionLocationIds
+      : new Set(Array.isArray(opts.suggestionLocationIds) ? opts.suggestionLocationIds : []);
 
-    function applyMarkerStyle(l, id, isHovered, isSelected, isVisited) {
+    function applyMarkerStyle(l, id, isHovered, isSelected, isVisited, isSuggestion) {
       if (!useCircleMarkers || !l.setStyle) return;
-      const radius = isHovered || isSelected ? hoverRadius : baseRadius;
-      const weight = isSelected ? selectedWeight : defaultWeight;
-      const fillColor = isVisited ? visitedFill : (isSelected ? "#ea580c" : "#f97316");
-      const color = isVisited ? visitedStroke : "#c2410c";
-      const fillOpacity = isVisited ? 0.65 : 0.9;
+      const radius = isSuggestion ? suggestionRadius : (isHovered || isSelected ? hoverRadius : baseRadius);
+      const weight = isSelected ? selectedWeight : (isSuggestion ? 2 : defaultWeight);
+      let fillColor, color, fillOpacity;
+      if (isSuggestion) {
+        fillColor = suggestionFill;
+        color = suggestionStroke;
+        fillOpacity = 0.9;
+      } else {
+        fillColor = isVisited ? visitedFill : (isSelected ? "#ea580c" : "#f97316");
+        color = isVisited ? visitedStroke : "#c2410c";
+        fillOpacity = isVisited ? 0.65 : 0.9;
+      }
       l.setStyle({ radius, weight, fillColor, color, fillOpacity });
     }
 
     for (const loc of visible) {
       const isVisited = visitedSet.has(loc.id);
+      const isSuggestion = suggestionSet.has(loc.id);
+      const radius = isSuggestion ? suggestionRadius : baseRadius;
+      const fillColor = isSuggestion ? suggestionFill : (isVisited ? visitedFill : "#f97316");
+      const color = isSuggestion ? suggestionStroke : (isVisited ? visitedStroke : "#c2410c");
       const layer = useCircleMarkers
         ? L.circleMarker([loc.latitude, loc.longitude], {
-            radius: baseRadius,
-            weight: defaultWeight,
-            fillColor: isVisited ? visitedFill : "#f97316",
-            color: isVisited ? visitedStroke : "#c2410c",
-            fillOpacity: isVisited ? 0.65 : 0.9,
+            radius,
+            weight: isSuggestion ? 2 : defaultWeight,
+            fillColor,
+            color,
+            fillOpacity: isSuggestion ? 0.9 : (isVisited ? 0.65 : 0.9),
           })
         : L.marker([loc.latitude, loc.longitude]);
 
       if (useCircleMarkers) {
         layer._locationId = loc.id;
         layer._isVisited = isVisited;
+        layer._isSuggestion = isSuggestion;
         layer.on("mouseover", () => {
-          applyMarkerStyle(layer, loc.id, true, loc.id === selectedLocationId, visitedSet.has(loc.id));
+          applyMarkerStyle(layer, loc.id, true, loc.id === selectedLocationId, visitedSet.has(loc.id), isSuggestion);
         });
         layer.on("mouseout", () => {
-          applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId, visitedSet.has(loc.id));
+          applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId, visitedSet.has(loc.id), isSuggestion);
         });
       }
 
       layer.on("click", () => {
         if (useCircleMarkers) {
-          applyMarkerStyle(layer, loc.id, true, true, visitedSet.has(loc.id));
+          applyMarkerStyle(layer, loc.id, true, true, visitedSet.has(loc.id), isSuggestion);
           setTimeout(() => {
-            applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId, visitedSet.has(loc.id));
+            applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId, visitedSet.has(loc.id), isSuggestion);
           }, 150);
         }
         if (typeof onLocationSelected === "function") {
@@ -127,7 +151,7 @@ export function createMapController(container, initialState) {
 
       if (useCircleMarkers) {
         layerById[loc.id] = layer;
-        applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId, visitedSet.has(loc.id));
+        applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId, visitedSet.has(loc.id), isSuggestion);
       }
       locationsLayer.addLayer(layer);
     }
@@ -154,21 +178,109 @@ export function createMapController(container, initialState) {
     selectedLocationId = id ?? null;
     const baseRadius = 6;
     const hoverRadius = 7;
+    const suggestionRadius = 8;
     const selectedWeight = 3;
     const defaultWeight = 2;
-    const updateStyle = (l, lid, selected) => {
+    const updateStyle = (l, selected) => {
       if (!l.setStyle) return;
-      const radius = selected ? hoverRadius : baseRadius;
-      const weight = selected ? selectedWeight : defaultWeight;
-      const fillColor = selected ? "#ea580c" : "#f97316";
-      l.setStyle({ radius, weight, fillColor, color: "#c2410c", fillOpacity: 0.9 });
+      const isSuggestion = l._isSuggestion === true;
+      const isVisited = l._isVisited === true;
+      const radius = selected ? (isSuggestion ? suggestionRadius : hoverRadius) : (isSuggestion ? suggestionRadius : baseRadius);
+      const weight = selected ? selectedWeight : (isSuggestion ? 2 : defaultWeight);
+      const fillColor = isSuggestion ? "#3b82f6" : (selected ? "#ea580c" : (isVisited ? "#9ca3af" : "#f97316"));
+      const color = isSuggestion ? "#ffffff" : (isVisited ? "#6b7280" : "#c2410c");
+      l.setStyle({ radius, weight, fillColor, color, fillOpacity: isVisited && !isSuggestion ? 0.65 : 0.9 });
     };
     if (prev && layerById[prev]) {
-      updateStyle(layerById[prev], prev, false);
+      updateStyle(layerById[prev], false);
     }
     if (selectedLocationId && layerById[selectedLocationId]) {
-      updateStyle(layerById[selectedLocationId], selectedLocationId, true);
+      updateStyle(layerById[selectedLocationId], true);
     }
+  }
+
+  function panToLocation(id) {
+    const layer = layerById[id];
+    if (layer && layer.getLatLng) {
+      map.panTo(layer.getLatLng());
+      setSelectedLocationId(id);
+    }
+  }
+
+  function invalidateSize() {
+    map.invalidateSize();
+  }
+
+  /**
+   * Update or create the GPS "You Are Here" marker and optional accuracy circle (PRD V2.0).
+   * @param {{ coords: { latitude: number, longitude: number, accuracy?: number } }} position
+   */
+  function updateGpsMarker(position) {
+    if (!position?.coords) return;
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    const accuracy = position.coords.accuracy;
+    lastGpsPosition = { lat, lng, accuracy };
+
+    if (!gpsMarker) {
+      gpsMarker = L.circleMarker([lat, lng], {
+        radius: 8,
+        weight: 2,
+        fillColor: "#3b82f6",
+        color: "#ffffff",
+        fillOpacity: 1,
+        className: "gps-you-are-here",
+      });
+      gpsMarker.addTo(gpsLayer);
+    } else {
+      gpsMarker.setLatLng([lat, lng]);
+    }
+
+    if (typeof accuracy === "number" && accuracy > 0) {
+      if (!gpsAccuracyCircle) {
+        gpsAccuracyCircle = L.circle([lat, lng], {
+          radius: accuracy,
+          weight: 1,
+          fillColor: "#3b82f6",
+          color: "#3b82f6",
+          fillOpacity: 0.2,
+          className: "gps-accuracy-circle",
+        });
+        gpsAccuracyCircle.addTo(gpsLayer);
+      } else {
+        gpsAccuracyCircle.setLatLng([lat, lng]);
+        gpsAccuracyCircle.setRadius(accuracy);
+      }
+    } else if (gpsAccuracyCircle) {
+      gpsLayer.removeLayer(gpsAccuracyCircle);
+      gpsAccuracyCircle = null;
+    }
+
+    if (!map.hasLayer(gpsLayer)) {
+      gpsLayer.addTo(map);
+    }
+  }
+
+  function removeGpsMarker() {
+    if (map.hasLayer(gpsLayer)) {
+      map.removeLayer(gpsLayer);
+    }
+    gpsLayer.clearLayers();
+    gpsMarker = null;
+    gpsAccuracyCircle = null;
+    lastGpsPosition = null;
+  }
+
+  function panToGps() {
+    if (!lastGpsPosition) return;
+    map.panTo([lastGpsPosition.lat, lastGpsPosition.lng]);
+    if (map.getZoom() < 16) {
+      map.setZoom(16);
+    }
+  }
+
+  function getGpsPosition() {
+    return lastGpsPosition ? { lat: lastGpsPosition.lat, lng: lastGpsPosition.lng } : null;
   }
 
   return {
@@ -176,6 +288,12 @@ export function createMapController(container, initialState) {
     setRun,
     renderLocations,
     setSelectedLocationId,
+    panToLocation,
+    invalidateSize,
+    updateGpsMarker,
+    removeGpsMarker,
+    panToGps,
+    getGpsPosition,
     getLeafletMap() {
       return map;
     },

@@ -2,6 +2,7 @@
 // map container, and space for bottom sheets / dashboard.
 
 import { createFab } from "./shared/fab.js";
+import { renderDashboard } from "./dashboard.js";
 
 /**
  * Floating Maintenance toggle button (PRD V1.6). Renders above map, top-right.
@@ -196,7 +197,17 @@ function renderSidePanelContent(sidePanel, mode, options = {}) {
 }
 
 export function createShellLayout(root, options) {
-  const { initialMode, onModeChange, onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef } = options;
+  const {
+    initialMode,
+    onModeChange,
+    onImportSuccessRef,
+    maintenanceFilterOptionsRef,
+    operationOptionsRef,
+    dashboardDataRef,
+    onFabClickRef,
+    disruptionRef,
+    onMapVisible,
+  } = options;
 
   root.innerHTML = "";
 
@@ -215,9 +226,9 @@ export function createShellLayout(root, options) {
   nav.className = "app-modes";
   nav.setAttribute("aria-label", "App modes");
   nav.innerHTML = `
+    <button data-mode="dashboard" class="mode-btn">Dashboard</button>
     <button data-mode="maintenance" class="mode-btn">Maintenance</button>
     <button data-mode="operation" class="mode-btn">Operation</button>
-    <button data-mode="dashboard" class="mode-btn">Dashboard</button>
   `;
   header.appendChild(titleDiv);
   header.appendChild(headerOperation);
@@ -255,6 +266,10 @@ export function createShellLayout(root, options) {
   const main = document.createElement("main");
   main.className = "app-main";
 
+  const dashboardWrap = document.createElement("div");
+  dashboardWrap.className = "dashboard-panel-wrap";
+  dashboardWrap.setAttribute("aria-label", "Dashboard");
+
   const mapContainer = document.createElement("div");
   mapContainer.id = "map";
   mapContainer.className = "map-container";
@@ -268,22 +283,49 @@ export function createShellLayout(root, options) {
       if (targetBtn) targetBtn.classList.add("active");
       currentMode = targetMode;
       maintenanceToggle.setActive(currentMode === "maintenance");
-      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef, maintenanceFilterOptionsRef });
+      updateDashboardVisibility();
+      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
+      updateHeaderOperation();
+      updateFabVisibility();
       if (typeof onModeChange === "function") {
         onModeChange(currentMode);
       }
     },
   });
 
+  const centerOnMeWrap = document.createElement("div");
+  centerOnMeWrap.className = "map-controls-center";
+  centerOnMeWrap.hidden = true;
+  const centerOnMeBtn = document.createElement("button");
+  centerOnMeBtn.type = "button";
+  centerOnMeBtn.className = "center-on-me-btn";
+  centerOnMeBtn.setAttribute("aria-label", "Center on my location");
+  centerOnMeBtn.innerHTML = "&#128205;";
+  let onCenterOnMeCallback = null;
+  centerOnMeBtn.addEventListener("click", () => typeof onCenterOnMeCallback === "function" && onCenterOnMeCallback());
+  centerOnMeWrap.appendChild(centerOnMeBtn);
+  mapContainer.appendChild(centerOnMeWrap);
+
+  function setGpsActive(active) {
+    centerOnMeWrap.hidden = !active;
+  }
+  function setOnCenterOnMe(fn) {
+    onCenterOnMeCallback = fn;
+  }
+
   const sidePanel = document.createElement("section");
   sidePanel.className = "side-panel";
   sidePanel.setAttribute("aria-live", "polite");
 
+  main.appendChild(dashboardWrap);
   main.appendChild(mapContainer);
   main.appendChild(sidePanel);
 
   const snackbarHost = document.createElement("div");
   snackbarHost.className = "snackbar-host";
+
+  const disruptionPanelHost = document.createElement("div");
+  disruptionPanelHost.className = "disruption-panel-host";
 
   const sheetHost = document.createElement("div");
   sheetHost.className = "bottom-sheet-host";
@@ -291,11 +333,27 @@ export function createShellLayout(root, options) {
   app.appendChild(header);
   app.appendChild(main);
   app.appendChild(snackbarHost);
+  app.appendChild(disruptionPanelHost);
   app.appendChild(sheetHost);
 
   root.appendChild(app);
 
   let currentMode = initialMode;
+  function updateDashboardVisibility() {
+    const isDashboard = currentMode === "dashboard";
+    dashboardWrap.hidden = !isDashboard;
+    mapContainer.hidden = isDashboard;
+    sidePanel.hidden = isDashboard;
+    if (isDashboard && dashboardDataRef?.current) {
+      renderDashboard(dashboardWrap, dashboardDataRef.current);
+    }
+  }
+  function updateFabVisibility() {
+    const runActive = operationOptionsRef?.current?.selectedRunId != null;
+    const inDisruption = disruptionRef?.current?.isDisruptionMode === true;
+    fab.hidden = currentMode !== "operation" || !runActive || inDisruption;
+  }
+  updateDashboardVisibility();
   renderSidePanelContent(sidePanel, initialMode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
   updateHeaderOperation();
 
@@ -310,21 +368,47 @@ export function createShellLayout(root, options) {
       btn.classList.add("active");
       currentMode = mode;
       maintenanceToggle.setActive(mode === "maintenance");
+      updateDashboardVisibility();
       renderSidePanelContent(sidePanel, mode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
       updateHeaderOperation();
+      updateFabVisibility();
       if (typeof onModeChange === "function") {
         onModeChange(mode);
       }
     });
   });
 
-  // Disruption FAB - visible in Operation mode; actual behaviour implemented later.
   const fab = createFab("!", { label: "Disruption" });
+  fab.addEventListener("click", () => typeof onFabClickRef?.current === "function" && onFabClickRef.current());
+  updateFabVisibility();
   root.appendChild(fab);
+
+  function setMode(mode) {
+    currentMode = mode;
+    header.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("active"));
+    const btn = header.querySelector(`.mode-btn[data-mode="${mode}"]`);
+    if (btn) btn.classList.add("active");
+    maintenanceToggle.setActive(mode === "maintenance");
+    updateDashboardVisibility();
+    renderSidePanelContent(sidePanel, mode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
+    updateHeaderOperation();
+    updateFabVisibility();
+    if (typeof onModeChange === "function") {
+      onModeChange(mode);
+    }
+    if (mode === "maintenance" || mode === "operation") {
+      if (typeof onMapVisible === "function") {
+        requestAnimationFrame(() => onMapVisible());
+      }
+    }
+  }
 
   return {
     getMapContainer() {
       return mapContainer;
+    },
+    getDisruptionPanelHost() {
+      return disruptionPanelHost;
     },
     getSidePanel() {
       return sidePanel;
@@ -335,9 +419,14 @@ export function createShellLayout(root, options) {
     getSnackbarHost() {
       return snackbarHost;
     },
+    setGpsActive,
+    setOnCenterOnMe,
+    setMode,
     refreshSidePanel() {
+      updateDashboardVisibility();
       renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
       updateHeaderOperation();
+      updateFabVisibility();
     },
     updateHeaderOperation,
     showError(message) {

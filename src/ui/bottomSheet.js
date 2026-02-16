@@ -27,9 +27,12 @@ function renderViewMode(location, callbacks, context = "maintenance") {
   const status = location.status != null ? String(location.status) : "—";
 
   const isOperation = context === "operation";
-  const actionsHtml = isOperation
+  const isDisruption = context === "disruption";
+  const isReadOnlyWithMarkVisited = isOperation || isDisruption;
+  const actionsHtml = isReadOnlyWithMarkVisited
     ? `<div class="bottom-sheet-actions">
          <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="mark-visited">Mark Visited</button>
+         ${isDisruption ? '<button type="button" class="bottom-sheet-btn bottom-sheet-btn-secondary" data-action="back">Back</button>' : ""}
        </div>`
     : `<div class="bottom-sheet-actions">
          <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="edit">Edit</button>
@@ -48,8 +51,9 @@ function renderViewMode(location, callbacks, context = "maintenance") {
     ${actionsHtml}
   `;
 
-  if (isOperation) {
+  if (isReadOnlyWithMarkVisited) {
     content.querySelector('[data-action="mark-visited"]')?.addEventListener("click", () => callbacks.onMarkVisited?.());
+    content.querySelector('[data-action="back"]')?.addEventListener("click", () => callbacks.onBack?.());
   } else {
     content.querySelector('[data-action="edit"]')?.addEventListener("click", () => callbacks.onEdit());
     content.querySelector('[data-action="archive"]')?.addEventListener("click", () => callbacks.onArchive());
@@ -218,6 +222,7 @@ export function createBottomSheet(options) {
         if (typeof onMarkVisited === "function") onMarkVisited(currentLocation);
         doClose();
       },
+      onBack: () => doClose(),
     };
     const content = mode === "view"
       ? renderViewMode(currentLocation, callbacks, openContext)
