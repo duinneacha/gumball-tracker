@@ -26,6 +26,7 @@ export function createLocation({
     serviceFrequency,
     productType,
     notes,
+    // Status enum (PRD V1.7): "active" | "archived" | "deleted"
     status: "active",
   };
 }
@@ -35,6 +36,14 @@ export function softDeleteLocation(location) {
 }
 
 export function restoreLocation(location) {
+  return { ...location, status: "active" };
+}
+
+export function archiveLocation(location) {
+  return { ...location, status: "archived" };
+}
+
+export function restoreFromArchive(location) {
   return { ...location, status: "active" };
 }
 

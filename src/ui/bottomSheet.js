@@ -17,7 +17,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function renderViewMode(location, callbacks) {
+function renderViewMode(location, callbacks, context = "maintenance") {
   const content = document.createElement("div");
   content.className = "bottom-sheet-content";
   const name = location.name != null ? String(location.name) : "—";
@@ -25,6 +25,17 @@ function renderViewMode(location, callbacks) {
   const productType = location.productType != null ? String(location.productType) : "—";
   const notes = location.notes != null ? String(location.notes) : "—";
   const status = location.status != null ? String(location.status) : "—";
+
+  const isOperation = context === "operation";
+  const actionsHtml = isOperation
+    ? `<div class="bottom-sheet-actions">
+         <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="mark-visited">Mark Visited</button>
+       </div>`
+    : `<div class="bottom-sheet-actions">
+         <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="edit">Edit</button>
+         <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="archive">Archive</button>
+         <button type="button" class="bottom-sheet-btn bottom-sheet-btn-danger" data-action="delete">Delete</button>
+       </div>`;
 
   content.innerHTML = `
     <dl class="bottom-sheet-details">
@@ -34,14 +45,16 @@ function renderViewMode(location, callbacks) {
       <dt>Notes</dt><dd>${escapeHtml(notes)}</dd>
       <dt>Status</dt><dd>${escapeHtml(status)}</dd>
     </dl>
-    <div class="bottom-sheet-actions">
-      <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="edit">Edit</button>
-      <button type="button" class="bottom-sheet-btn bottom-sheet-btn-danger" data-action="delete">Delete</button>
-    </div>
+    ${actionsHtml}
   `;
 
-  content.querySelector('[data-action="edit"]')?.addEventListener("click", () => callbacks.onEdit());
-  content.querySelector('[data-action="delete"]')?.addEventListener("click", () => callbacks.onDelete());
+  if (isOperation) {
+    content.querySelector('[data-action="mark-visited"]')?.addEventListener("click", () => callbacks.onMarkVisited?.());
+  } else {
+    content.querySelector('[data-action="edit"]')?.addEventListener("click", () => callbacks.onEdit());
+    content.querySelector('[data-action="archive"]')?.addEventListener("click", () => callbacks.onArchive());
+    content.querySelector('[data-action="delete"]')?.addEventListener("click", () => callbacks.onDelete());
+  }
   return content;
 }
 
@@ -126,15 +139,18 @@ function renderHeader(closeBtn) {
  * @param {HTMLElement} options.sidePanel - Side panel element for tablet layout
  * @param {() => void} options.onClose - Called when sheet is closed
  * @param {(location: object) => void} [options.onSave] - Called with updated location on Save
+ * @param {(location: object) => void} [options.onArchive] - Called with location on Archive
  * @param {(location: object) => void} [options.onDelete] - Called with location on Delete
+ * @param {() => void} [options.onMarkVisited] - Called when Mark Visited is pressed (Operation mode)
  */
 export function createBottomSheet(options) {
-  const { sheetHost, sidePanel, onClose, onSave, onDelete } = options;
+  const { sheetHost, sidePanel, onClose, onSave, onArchive, onDelete, onMarkVisited } = options;
   let currentWrapper = null;
   let usedTablet = false;
   let touchStartY = 0;
   let currentLocation = null;
   let mode = "view";
+  let openContext = "maintenance";
 
   function doClose() {
     const wrapper = currentWrapper;
@@ -190,13 +206,21 @@ export function createBottomSheet(options) {
         mode = "view";
         renderContentArea();
       },
+      onArchive: () => {
+        if (typeof onArchive === "function") onArchive(currentLocation);
+        doClose();
+      },
       onDelete: () => {
         if (typeof onDelete === "function") onDelete(currentLocation);
         doClose();
       },
+      onMarkVisited: () => {
+        if (typeof onMarkVisited === "function") onMarkVisited(currentLocation);
+        doClose();
+      },
     };
     const content = mode === "view"
-      ? renderViewMode(currentLocation, callbacks)
+      ? renderViewMode(currentLocation, callbacks, openContext)
       : renderEditMode({ ...currentLocation }, callbacks);
     contentSlot.appendChild(content);
   }
@@ -204,12 +228,14 @@ export function createBottomSheet(options) {
   /**
    * Open the bottom sheet with location details.
    * @param {object} location - { id, name, latitude, longitude, serviceFrequency, productType, notes, status }
+   * @param {{ context?: 'maintenance'|'operation' }} [openOptions] - When context is 'operation', shows Mark Visited only.
    */
-  function open(location) {
+  function open(location, openOptions = {}) {
     if (!location || typeof location !== "object") return;
 
     currentLocation = { ...location };
     mode = "view";
+    openContext = openOptions.context === "operation" ? "operation" : "maintenance";
     usedTablet = isTablet();
 
     const contentSlot = document.createElement("div");

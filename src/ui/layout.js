@@ -46,12 +46,98 @@ function createMaintenanceToggleButton(container, options) {
   };
 }
 
+/**
+ * Create maintenance filter bar (PRD V1.7): status chips, unassigned toggle, search.
+ * @param {{ active: boolean, archived: boolean, deleted: boolean, unassignedOnly: boolean, searchQuery: string }} filters
+ * @param {(filters: object) => void} onFiltersChange
+ */
+function createMaintenanceFilterBar(filters, onFiltersChange) {
+  const bar = document.createElement("div");
+  bar.className = "maintenance-filter-bar";
+
+  const chipsWrap = document.createElement("div");
+  chipsWrap.className = "maintenance-filter-chips";
+  ["active", "archived", "deleted"].forEach((status) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "filter-chip";
+    btn.dataset.status = status;
+    btn.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    if (filters[status]) btn.classList.add("active");
+    btn.addEventListener("click", () => {
+      const next = { ...filters, [status]: !filters[status] };
+      onFiltersChange(next);
+    });
+    chipsWrap.appendChild(btn);
+  });
+
+  const unassignedLabel = document.createElement("label");
+  unassignedLabel.className = "filter-unassigned-label";
+  const unassignedCheck = document.createElement("input");
+  unassignedCheck.type = "checkbox";
+  unassignedCheck.checked = filters.unassignedOnly;
+  unassignedCheck.setAttribute("aria-label", "Unassigned only");
+  unassignedLabel.appendChild(unassignedCheck);
+  const unassignedSpan = document.createElement("span");
+  unassignedSpan.textContent = "Unassigned only";
+  unassignedLabel.appendChild(unassignedSpan);
+  unassignedCheck.addEventListener("change", () => {
+    onFiltersChange({ ...filters, unassignedOnly: unassignedCheck.checked });
+  });
+
+  const searchInput = document.createElement("input");
+  searchInput.type = "search";
+  searchInput.className = "filter-search";
+  searchInput.placeholder = "Search locations…";
+  searchInput.setAttribute("aria-label", "Search locations by name");
+  searchInput.value = filters.searchQuery ?? "";
+  let searchTimeout;
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      onFiltersChange({ ...filters, searchQuery: searchInput.value });
+    }, 150);
+  });
+
+  bar.appendChild(chipsWrap);
+  bar.appendChild(unassignedLabel);
+  bar.appendChild(searchInput);
+  return bar;
+}
+
 function renderSidePanelContent(sidePanel, mode, options = {}) {
-  const { onImportSuccessRef } = options;
+  const { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef } = options;
+  const filterOpts = maintenanceFilterOptionsRef?.current;
+  const maintenanceFilters = filterOpts?.maintenanceFilters;
+  const onMaintenanceFiltersChange = filterOpts?.onMaintenanceFiltersChange;
+  const onExportBackup = filterOpts?.onExportBackup;
+  const operationOpts = operationOptionsRef?.current;
+
   sidePanel.innerHTML = "";
+  if (mode === "operation") {
+    const wrap = document.createElement("div");
+    wrap.className = "side-panel-operation";
+    const progress = document.createElement("p");
+    progress.className = "operation-progress";
+    progress.setAttribute("aria-live", "polite");
+    const runName = operationOpts?.runName ?? "—";
+    const visitedCount = operationOpts?.visitedCount ?? 0;
+    const totalCount = operationOpts?.totalCount ?? 0;
+    progress.textContent = `Run: ${runName} | ${visitedCount} / ${totalCount} visited`;
+    wrap.appendChild(progress);
+    sidePanel.appendChild(wrap);
+  }
   if (mode === "maintenance") {
     const wrap = document.createElement("div");
     wrap.className = "side-panel-maintenance";
+
+    if (maintenanceFilters && typeof onMaintenanceFiltersChange === "function") {
+      const filterBar = createMaintenanceFilterBar(maintenanceFilters, (next) => {
+        onMaintenanceFiltersChange(next);
+      });
+      wrap.appendChild(filterBar);
+    }
+
     const label = document.createElement("label");
     label.className = "import-label";
     const input = document.createElement("input");
@@ -64,6 +150,16 @@ function renderSidePanelContent(sidePanel, mode, options = {}) {
     label.appendChild(input);
     label.appendChild(span);
     wrap.appendChild(label);
+
+    if (typeof onExportBackup === "function") {
+      const exportBtn = document.createElement("button");
+      exportBtn.type = "button";
+      exportBtn.className = "export-backup-btn";
+      exportBtn.textContent = "Export Backup JSON";
+      exportBtn.addEventListener("click", () => onExportBackup());
+      wrap.appendChild(exportBtn);
+    }
+
     const status = document.createElement("p");
     status.className = "import-status";
     status.setAttribute("aria-live", "polite");
@@ -100,7 +196,7 @@ function renderSidePanelContent(sidePanel, mode, options = {}) {
 }
 
 export function createShellLayout(root, options) {
-  const { initialMode, onModeChange, onImportSuccessRef } = options;
+  const { initialMode, onModeChange, onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef } = options;
 
   root.innerHTML = "";
 
@@ -109,14 +205,52 @@ export function createShellLayout(root, options) {
 
   const header = document.createElement("header");
   header.className = "app-header";
-  header.innerHTML = `
-    <div class="app-title">Gumball Tracker</div>
-    <nav class="app-modes" aria-label="App modes">
-      <button data-mode="maintenance" class="mode-btn">Maintenance</button>
-      <button data-mode="operation" class="mode-btn">Operation</button>
-      <button data-mode="dashboard" class="mode-btn">Dashboard</button>
-    </nav>
+  const titleDiv = document.createElement("div");
+  titleDiv.className = "app-title";
+  titleDiv.textContent = "Gumball Tracker";
+  const headerOperation = document.createElement("div");
+  headerOperation.className = "header-operation";
+  headerOperation.setAttribute("aria-label", "Run selection");
+  const nav = document.createElement("nav");
+  nav.className = "app-modes";
+  nav.setAttribute("aria-label", "App modes");
+  nav.innerHTML = `
+    <button data-mode="maintenance" class="mode-btn">Maintenance</button>
+    <button data-mode="operation" class="mode-btn">Operation</button>
+    <button data-mode="dashboard" class="mode-btn">Dashboard</button>
   `;
+  header.appendChild(titleDiv);
+  header.appendChild(headerOperation);
+  header.appendChild(nav);
+
+  function updateHeaderOperation() {
+    headerOperation.innerHTML = "";
+    headerOperation.hidden = currentMode !== "operation";
+    if (currentMode !== "operation") return;
+    const opts = operationOptionsRef?.current;
+    if (!opts) return;
+    const { runs = [], selectedRunId, onRunSelect, resumeRunId } = opts;
+    const select = document.createElement("select");
+    select.className = "run-select";
+    select.setAttribute("aria-label", "Select run");
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = resumeRunId ? "Resume last run" : "Select Run ▼";
+    select.appendChild(placeholder);
+    (runs || []).forEach((run) => {
+      const opt = document.createElement("option");
+      opt.value = run.id;
+      opt.textContent = run.name ?? run.id;
+      if (run.id === selectedRunId) opt.selected = true;
+      select.appendChild(opt);
+    });
+    if (selectedRunId) select.value = selectedRunId;
+    select.addEventListener("change", () => {
+      const runId = select.value || null;
+      if (typeof onRunSelect === "function") onRunSelect(runId);
+    });
+    headerOperation.appendChild(select);
+  }
 
   const main = document.createElement("main");
   main.className = "app-main";
@@ -134,7 +268,7 @@ export function createShellLayout(root, options) {
       if (targetBtn) targetBtn.classList.add("active");
       currentMode = targetMode;
       maintenanceToggle.setActive(currentMode === "maintenance");
-      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef });
+      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef, maintenanceFilterOptionsRef });
       if (typeof onModeChange === "function") {
         onModeChange(currentMode);
       }
@@ -162,7 +296,8 @@ export function createShellLayout(root, options) {
   root.appendChild(app);
 
   let currentMode = initialMode;
-  renderSidePanelContent(sidePanel, initialMode, { onImportSuccessRef });
+  renderSidePanelContent(sidePanel, initialMode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
+  updateHeaderOperation();
 
   // Mode button wiring (header tabs + floating Maintenance toggle sync)
   header.querySelectorAll(".mode-btn").forEach((btn) => {
@@ -175,7 +310,8 @@ export function createShellLayout(root, options) {
       btn.classList.add("active");
       currentMode = mode;
       maintenanceToggle.setActive(mode === "maintenance");
-      renderSidePanelContent(sidePanel, mode, { onImportSuccessRef });
+      renderSidePanelContent(sidePanel, mode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
+      updateHeaderOperation();
       if (typeof onModeChange === "function") {
         onModeChange(mode);
       }
@@ -200,8 +336,10 @@ export function createShellLayout(root, options) {
       return snackbarHost;
     },
     refreshSidePanel() {
-      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef });
+      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
+      updateHeaderOperation();
     },
+    updateHeaderOperation,
     showError(message) {
       // Minimal inline error for now; can be replaced with snackbar.
       // eslint-disable-next-line no-console

@@ -67,6 +67,41 @@ body {
   color: #111827;
 }
 
+/* Operation mode: run selector in header (PRD V1.8) */
+.header-operation {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.run-select {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  background-color: #374151;
+  color: #f9fafb;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  cursor: pointer;
+  max-width: 12rem;
+}
+
+.run-select:focus {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+/* Operation mode: progress in side panel */
+.side-panel-operation {
+  padding: 0.25rem 0;
+}
+
+.operation-progress {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+}
+
 .app-main {
   flex: 1;
   display: flex;
@@ -130,6 +165,78 @@ body {
   padding: 0.5rem 1rem;
   background-color: #ffffff;
   min-height: 3rem;
+}
+
+/* Maintenance filter bar (PRD V1.7) */
+.maintenance-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.maintenance-filter-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-chip {
+  flex-shrink: 0;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background-color: #fff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.filter-chip.active {
+  background-color: #f97316;
+  color: #111827;
+  border-color: #ea580c;
+}
+
+.filter-unassigned-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #374151;
+}
+
+.filter-search {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.export-backup-btn {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background-color: #e5e7eb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.export-backup-btn:hover {
+  background-color: #d1d5db;
 }
 
 .side-panel-maintenance .import-label {
