@@ -76,6 +76,53 @@ body {
 .map-container {
   flex: 1;
   min-height: 300px;
+  position: relative;
+}
+
+/* Marker interaction feedback (PRD V1.6) */
+.leaflet-interactive {
+  cursor: pointer;
+}
+
+.marker-hovered {
+  transform: scale(1.1);
+}
+
+/* Floating Maintenance toggle — mobile-first, above map controls */
+.maintenance-toggle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1001;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #111827;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.maintenance-toggle:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.maintenance-toggle.active {
+  background-color: #f97316;
+  color: #111827;
+  border-color: #ea580c;
+}
+
+.maintenance-toggle.active:hover {
+  background-color: #ea580c;
+  border-color: #c2410c;
 }
 
 .side-panel {

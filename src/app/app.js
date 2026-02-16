@@ -32,6 +32,9 @@ export function createApp(rootElement) {
     onModeChange: async (mode) => {
       state.mode = mode;
       mapController.setMode(mode);
+      if (mode !== "maintenance") {
+        mapController.setSelectedLocationId(null);
+      }
       if (mode === "maintenance" && typeof refreshMaintenanceMapRef.current === "function") {
         await refreshMaintenanceMapRef.current();
       }
@@ -66,7 +69,10 @@ export function createApp(rootElement) {
   const bottomSheet = createBottomSheet({
     sheetHost: shell.getSheetHost(),
     sidePanel: shell.getSidePanel(),
-    onClose: () => shell.refreshSidePanel(),
+    onClose: () => {
+      mapController.setSelectedLocationId(null);
+      shell.refreshSidePanel();
+    },
     onSave: async (updatedLocation) => {
       if (!updatedLocation?.name?.trim()) return;
       const location = {
@@ -112,6 +118,7 @@ export function createApp(rootElement) {
     selectedRunId: state.selectedRunId,
     onLocationSelected: (location) => {
       if (state.mode === MODES.MAINTENANCE) {
+        mapController.setSelectedLocationId(location.id);
         bottomSheet.open(location);
       }
     },

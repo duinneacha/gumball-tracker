@@ -15,7 +15,9 @@ export function createMapController(container, initialState) {
   };
 
   const locationsLayer = L.featureGroup();
+  const layerById = {};
   let hasFittedBounds = false;
+  let selectedLocationId = null;
 
   function setMode(mode) {
     state.mode = mode;
@@ -45,6 +47,7 @@ export function createMapController(container, initialState) {
     }
 
     locationsLayer.clearLayers();
+    Object.keys(layerById).forEach((id) => delete layerById[id]);
 
     const visible = Array.isArray(locations)
       ? locations.filter(
@@ -55,15 +58,56 @@ export function createMapController(container, initialState) {
     // eslint-disable-next-line no-console
     console.log(`[map] renderLocations input=${inputCount} visible=${visible.length}`);
 
+    const baseRadius = 6;
+    const hoverRadius = 7;
+    const selectedWeight = 3;
+    const defaultWeight = 2;
+
+    function applyMarkerStyle(l, id, isHovered, isSelected) {
+      if (!useCircleMarkers || !l.setStyle) return;
+      const radius = isHovered || isSelected ? hoverRadius : baseRadius;
+      const weight = isSelected ? selectedWeight : defaultWeight;
+      const fillColor = isSelected ? "#ea580c" : "#f97316";
+      l.setStyle({ radius, weight, fillColor, color: "#c2410c", fillOpacity: 0.9 });
+    }
+
     for (const loc of visible) {
       const layer = useCircleMarkers
-        ? L.circleMarker([loc.latitude, loc.longitude], { radius: 6 })
+        ? L.circleMarker([loc.latitude, loc.longitude], {
+            radius: baseRadius,
+            weight: defaultWeight,
+            fillColor: "#f97316",
+            color: "#c2410c",
+            fillOpacity: 0.9,
+          })
         : L.marker([loc.latitude, loc.longitude]);
+
+      if (useCircleMarkers) {
+        layer._locationId = loc.id;
+        layer.on("mouseover", () => {
+          applyMarkerStyle(layer, loc.id, true, loc.id === selectedLocationId);
+        });
+        layer.on("mouseout", () => {
+          applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId);
+        });
+      }
+
       layer.on("click", () => {
+        if (useCircleMarkers) {
+          applyMarkerStyle(layer, loc.id, true, true);
+          setTimeout(() => {
+            applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId);
+          }, 150);
+        }
         if (typeof onLocationSelected === "function") {
           onLocationSelected(loc);
         }
       });
+
+      if (useCircleMarkers) {
+        layerById[loc.id] = layer;
+        applyMarkerStyle(layer, loc.id, false, loc.id === selectedLocationId);
+      }
       locationsLayer.addLayer(layer);
     }
 
@@ -83,10 +127,34 @@ export function createMapController(container, initialState) {
     }
   }
 
+  function setSelectedLocationId(id) {
+    if (selectedLocationId === id) return;
+    const prev = selectedLocationId;
+    selectedLocationId = id ?? null;
+    const baseRadius = 6;
+    const hoverRadius = 7;
+    const selectedWeight = 3;
+    const defaultWeight = 2;
+    const updateStyle = (l, lid, selected) => {
+      if (!l.setStyle) return;
+      const radius = selected ? hoverRadius : baseRadius;
+      const weight = selected ? selectedWeight : defaultWeight;
+      const fillColor = selected ? "#ea580c" : "#f97316";
+      l.setStyle({ radius, weight, fillColor, color: "#c2410c", fillOpacity: 0.9 });
+    };
+    if (prev && layerById[prev]) {
+      updateStyle(layerById[prev], prev, false);
+    }
+    if (selectedLocationId && layerById[selectedLocationId]) {
+      updateStyle(layerById[selectedLocationId], selectedLocationId, true);
+    }
+  }
+
   return {
     setMode,
     setRun,
     renderLocations,
+    setSelectedLocationId,
     getLeafletMap() {
       return map;
     },

@@ -3,6 +3,49 @@
 
 import { createFab } from "./shared/fab.js";
 
+/**
+ * Floating Maintenance toggle button (PRD V1.6). Renders above map, top-right.
+ * Tap switches to Maintenance (or back to Operation when already in Maintenance).
+ * @param {HTMLElement} container - Map container to mount the button in
+ * @param {{ initialActive: boolean, onClick: () => void }} options
+ * @returns {{ setActive: (isActive: boolean) => void }}
+ */
+function createMaintenanceToggleButton(container, options) {
+  const { initialActive, onClick } = options;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "maintenance-toggle";
+  btn.setAttribute("aria-label", "Switch to Maintenance mode");
+  btn.innerHTML = "&#9881;&#65039; Maintenance";
+
+  if (initialActive) {
+    btn.classList.add("active");
+    btn.setAttribute("aria-pressed", "true");
+  } else {
+    btn.setAttribute("aria-pressed", "false");
+  }
+
+  btn.addEventListener("click", () => {
+    if (typeof onClick === "function") onClick();
+  });
+
+  container.appendChild(btn);
+
+  return {
+    setActive(isActive) {
+      if (isActive) {
+        btn.classList.add("active");
+        btn.setAttribute("aria-pressed", "true");
+        btn.setAttribute("aria-label", "Switch to Operation mode (currently Maintenance)");
+      } else {
+        btn.classList.remove("active");
+        btn.setAttribute("aria-pressed", "false");
+        btn.setAttribute("aria-label", "Switch to Maintenance mode");
+      }
+    },
+  };
+}
+
 function renderSidePanelContent(sidePanel, mode, options = {}) {
   const { onImportSuccessRef } = options;
   sidePanel.innerHTML = "";
@@ -82,6 +125,22 @@ export function createShellLayout(root, options) {
   mapContainer.id = "map";
   mapContainer.className = "map-container";
 
+  const maintenanceToggle = createMaintenanceToggleButton(mapContainer, {
+    initialActive: initialMode === "maintenance",
+    onClick: () => {
+      const targetMode = currentMode === "maintenance" ? "operation" : "maintenance";
+      header.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("active"));
+      const targetBtn = header.querySelector(`.mode-btn[data-mode="${targetMode}"]`);
+      if (targetBtn) targetBtn.classList.add("active");
+      currentMode = targetMode;
+      maintenanceToggle.setActive(currentMode === "maintenance");
+      renderSidePanelContent(sidePanel, currentMode, { onImportSuccessRef });
+      if (typeof onModeChange === "function") {
+        onModeChange(currentMode);
+      }
+    },
+  });
+
   const sidePanel = document.createElement("section");
   sidePanel.className = "side-panel";
   sidePanel.setAttribute("aria-live", "polite");
@@ -105,7 +164,7 @@ export function createShellLayout(root, options) {
   let currentMode = initialMode;
   renderSidePanelContent(sidePanel, initialMode, { onImportSuccessRef });
 
-  // Mode button wiring
+  // Mode button wiring (header tabs + floating Maintenance toggle sync)
   header.querySelectorAll(".mode-btn").forEach((btn) => {
     const mode = btn.getAttribute("data-mode");
     if (mode === initialMode) {
@@ -115,6 +174,7 @@ export function createShellLayout(root, options) {
       header.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       currentMode = mode;
+      maintenanceToggle.setActive(mode === "maintenance");
       renderSidePanelContent(sidePanel, mode, { onImportSuccessRef });
       if (typeof onModeChange === "function") {
         onModeChange(mode);
