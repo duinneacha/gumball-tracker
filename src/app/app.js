@@ -10,8 +10,10 @@ import { createShellLayout } from "../ui/layout.js";
 import { createBottomSheet } from "../ui/bottomSheet.js";
 import { showSnackbar } from "../ui/snackbar.js";
 import { exportAllData } from "../storage/backup.js";
-import { getAllRuns, getLocationsForRun } from "../domain/runModel.js";
+import { getAllRuns, getLocationsForRun, addLocationToRun, removeLocationFromRun } from "../domain/runModel.js";
 import { createRunSession, markVisited } from "../domain/runSession.js";
+import { createVisit, saveVisit } from "../domain/visitModel.js";
+import { saveLastRunCompletion, getLastRunCompletion } from "../domain/runCompletion.js";
 import { getNearestByCardinal } from "../utils/geo.js";
 import { createDisruptionPanel } from "../ui/disruptionPanel.js";
 
@@ -95,6 +97,7 @@ export function createApp(rootElement) {
       activeCount: 0,
       runsCount: 0,
       lastVisitText: "No visits yet",
+      lastRun: null,
       onGoToMaintenance: () => {},
       onGoToOperation: () => {},
     },
@@ -108,8 +111,10 @@ export function createApp(rootElement) {
       visitedCount: 0,
       totalCount: 0,
       resumeRunId: null,
+      onFinishRun: null,
       onRunSelect: (runId) => {
         state.selectedRunId = runId;
+        operationOptionsRef.current.selectedRunId = runId;
         if (runId) {
           state.runSession = createRunSession(runId);
           try {
@@ -310,10 +315,35 @@ export function createApp(rootElement) {
   const mapController = createMapController(shell.getMapContainer(), {
     mode: state.mode,
     selectedRunId: state.selectedRunId,
-    onLocationSelected: (location) => {
+    onLocationSelected: async (location) => {
       if (state.mode === MODES.MAINTENANCE) {
         mapController.setSelectedLocationId(location.id);
-        bottomSheet.open(location, { context: "maintenance" });
+        const [runs, runLocations] = await Promise.all([
+          getAllRuns(),
+          getAllFromStore("runLocations"),
+        ]);
+        const assignedRunIds = new Set(
+          (runLocations || []).filter((rl) => rl.locationId === location.id).map((rl) => rl.runId)
+        );
+        bottomSheet.open(location, {
+          context: "maintenance",
+          runs: runs || [],
+          selectedRunIds: assignedRunIds,
+          onRunToggle: async (runId, checked) => {
+            if (checked) {
+              await addLocationToRun(runId, location.id);
+              const run = (runs || []).find((r) => r.id === runId);
+              showSnackbar(snackbarHost, `Added to ${run?.name ?? runId}`);
+            } else {
+              await removeLocationFromRun(runId, location.id);
+              const run = (runs || []).find((r) => r.id === runId);
+              showSnackbar(snackbarHost, `Removed from ${run?.name ?? runId}`);
+            }
+            if (state.maintenanceFilters.unassignedOnly && typeof refreshMaintenanceMapRef.current === "function") {
+              await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+            }
+          },
+        });
       }
       if (state.mode === MODES.OPERATION && !state.isDisruptionMode) {
         mapController.setSelectedLocationId(location.id);
@@ -377,6 +407,69 @@ export function createApp(rootElement) {
     shell.setGpsActive?.(false);
   }
 
+  async function finishRun() {
+    if (!state.runSession || !state.selectedRunId) return;
+    const session = state.runSession;
+    const runId = state.selectedRunId;
+    const visitedIds = session.visitedLocationIds;
+
+    if (state.isDisruptionMode) {
+      state.isDisruptionMode = false;
+      disruptionRef.current.isDisruptionMode = false;
+      if (disruptionPanelInstance) {
+        disruptionPanelInstance.destroy();
+        disruptionPanelInstance = null;
+      }
+    }
+
+    const locations = await getLocationsForRun(runId);
+    const totalCount = locations.length;
+    const visitedCount = visitedIds.size;
+    const runs = operationOptionsRef.current.runs || [];
+    const run = runs.find((r) => r.id === runId);
+    const runName = run?.name ?? runId;
+    const completedAt = new Date().toISOString();
+
+    for (const locationId of visitedIds) {
+      const visitId = `visit-${runId}-${locationId}-${session.startedAt}`;
+      const visit = createVisit({
+        id: visitId,
+        locationId,
+        runId,
+        visitedAt: Date.now(),
+        visitMethod: "manual",
+      });
+      await saveVisit(visit);
+    }
+
+    await saveLastRunCompletion({
+      runId,
+      runName,
+      visitedCount,
+      totalCount,
+      completedAt,
+    });
+
+    state.selectedRunId = null;
+    state.runSession = null;
+    operationOptionsRef.current.selectedRunId = null;
+    operationOptionsRef.current.runName = "—";
+    operationOptionsRef.current.visitedCount = 0;
+    operationOptionsRef.current.totalCount = 0;
+    try {
+      localStorage.setItem(LAST_RUN_KEY, "");
+    } catch (_) {}
+    mapController.setRun(null);
+    stopWatchingGPS();
+    mapController.renderLocations([], { skipMaintenanceFilters: true, useCircleMarkers: true });
+
+    shell.setMode("dashboard");
+    await refreshDashboardData();
+    shell.refreshSidePanel();
+
+    showSnackbar(snackbarHost, `Run "${runName}" completed – ${visitedCount}/${totalCount} visited`, { duration: 5000 });
+  }
+
   async function refreshMaintenanceMap(opts = {}) {
     if (state.mode !== MODES.MAINTENANCE) return;
     const [locations, runLocations] = await Promise.all([
@@ -432,10 +525,11 @@ export function createApp(rootElement) {
   }
 
   async function refreshDashboardData() {
-    const [locations, runs, visits] = await Promise.all([
+    const [locations, runs, visits, lastRun] = await Promise.all([
       getAllFromStore("locations"),
       getAllFromStore("runs"),
       getAllFromStore("visits"),
+      getLastRunCompletion(),
     ]);
     const activeCount = (locations || []).filter((l) => l.status === "active").length;
     const runsCount = (runs || []).length;
@@ -451,6 +545,7 @@ export function createApp(rootElement) {
       activeCount,
       runsCount,
       lastVisitText,
+      lastRun,
       onGoToMaintenance: () => shell.setMode("maintenance"),
       onGoToOperation: () => shell.setMode("operation"),
     };
@@ -500,6 +595,7 @@ export function createApp(rootElement) {
   refreshOperationMapRef.current = refreshOperationMap;
   refreshDashboardDataRef.current = refreshDashboardData;
   onImportSuccessRef.current = refreshMaintenanceMap;
+  operationOptionsRef.current.onFinishRun = finishRun;
 
   refreshDashboardData().then(() => {
     if (state.mode === MODES.DASHBOARD) shell.refreshSidePanel();

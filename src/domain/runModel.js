@@ -1,6 +1,6 @@
 // Run domain helpers.
 
-import { putEntity, getAllFromStore } from "../storage/indexedDb.js";
+import { putEntity, getAllFromStore, deleteEntity } from "../storage/indexedDb.js";
 
 export function createRun({ id, name, active = true }) {
   return { id, name, active };
@@ -31,5 +31,43 @@ export async function getLocationsForRun(runId) {
   return (allLocations || []).filter(
     (loc) => locationIds.has(loc.id) && (loc.status === "active" || !loc.status)
   );
+}
+
+/**
+ * Get run IDs that a location is assigned to (PRD V2.2).
+ * @param {string} locationId
+ * @returns {Promise<Set<string>>}
+ */
+export async function getRunsForLocation(locationId) {
+  const runLocations = await getAllFromStore("runLocations");
+  const ids = new Set(
+    (runLocations || []).filter((rl) => rl.locationId === locationId).map((rl) => rl.runId)
+  );
+  return ids;
+}
+
+const runLocationId = (runId, locationId) => `rl-${runId}-${locationId}`;
+
+/**
+ * Add a location to a run. Idempotent: if link exists, no-op (PRD V2.2).
+ * @param {string} runId
+ * @param {string} locationId
+ */
+export async function addLocationToRun(runId, locationId) {
+  const record = {
+    id: runLocationId(runId, locationId),
+    runId,
+    locationId,
+  };
+  await putEntity("runLocations", record);
+}
+
+/**
+ * Remove a location from a run (PRD V2.2).
+ * @param {string} runId
+ * @param {string} locationId
+ */
+export async function removeLocationFromRun(runId, locationId) {
+  await deleteEntity("runLocations", runLocationId(runId, locationId));
 }
 

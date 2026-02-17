@@ -126,6 +126,15 @@ function renderSidePanelContent(sidePanel, mode, options = {}) {
     const totalCount = operationOpts?.totalCount ?? 0;
     progress.textContent = `Run: ${runName} | ${visitedCount} / ${totalCount} visited`;
     wrap.appendChild(progress);
+    if (operationOpts?.selectedRunId && typeof operationOpts?.onFinishRun === "function") {
+      const finishBtn = document.createElement("button");
+      finishBtn.type = "button";
+      finishBtn.className = "finish-run-btn";
+      finishBtn.textContent = "Finish Run";
+      finishBtn.setAttribute("aria-label", "Finish run and save visited stops");
+      finishBtn.addEventListener("click", () => operationOpts.onFinishRun());
+      wrap.appendChild(finishBtn);
+    }
     sidePanel.appendChild(wrap);
   }
   if (mode === "maintenance") {

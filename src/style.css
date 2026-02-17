@@ -102,6 +102,27 @@ body {
   color: #374151;
 }
 
+.finish-run-btn {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background-color: #059669;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.finish-run-btn:hover {
+  background-color: #047857;
+}
+
+.finish-run-btn:active {
+  background-color: #065f46;
+}
+
 /* Dashboard (default landing mode) */
 .dashboard-panel-wrap {
   flex: 1;
@@ -154,6 +175,12 @@ body {
   font-size: 1rem;
   font-weight: 500;
   color: #374151;
+}
+
+.dashboard-card-sublabel {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 0.125rem;
 }
 
 .dashboard-actions {
@@ -614,6 +641,45 @@ body {
 
 .bottom-sheet-details dd {
   margin: 0.15rem 0 0;
+}
+
+.bottom-sheet-runs-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.bottom-sheet-runs-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.bottom-sheet-runs-list {
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.bottom-sheet-run-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.25rem 0;
+  cursor: pointer;
+}
+
+.bottom-sheet-run-item input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.bottom-sheet-run-item span {
+  flex: 1;
+  font-size: 0.95rem;
 }
 
 .bottom-sheet-content-slot {

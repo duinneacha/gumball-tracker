@@ -1,18 +1,19 @@
 /**
- * Dashboard (V1): default landing mode. Cards for active locations, runs, last visit;
- * quick links to Maintenance and Operation. Map is hidden when Dashboard is active.
+ * Dashboard (V1): default landing mode. Cards for active locations, runs, last visit,
+ * last run (PRD V2.1); quick links to Maintenance and Operation. Map is hidden when Dashboard is active.
  */
 
 /**
  * Render dashboard content into the given container.
  * @param {HTMLElement} container
- * @param {{ activeCount: number, runsCount: number, lastVisitText: string, onGoToMaintenance: () => void, onGoToOperation: () => void }} options
+ * @param {{ activeCount: number, runsCount: number, lastVisitText: string, lastRun?: object | null, onGoToMaintenance: () => void, onGoToOperation: () => void }} options
  */
 export function renderDashboard(container, options) {
   const {
     activeCount = 0,
     runsCount = 0,
     lastVisitText = "No visits yet",
+    lastRun = null,
     onGoToMaintenance,
     onGoToOperation,
   } = options;
@@ -32,6 +33,17 @@ export function renderDashboard(container, options) {
   card3.className = "dashboard-card";
   card3.innerHTML = `<span class="dashboard-card-label">Last Visit</span><span class="dashboard-card-value dashboard-card-value--muted">${escapeHtml(lastVisitText)}</span>`;
 
+  const card4 = document.createElement("div");
+  card4.className = "dashboard-card";
+  if (lastRun && lastRun.runName) {
+    const completedAt = lastRun.completedAt
+      ? new Date(lastRun.completedAt).toLocaleString()
+      : "—";
+    card4.innerHTML = `<span class="dashboard-card-label">Last Run</span><span class="dashboard-card-value">${escapeHtml(lastRun.runName)}</span><span class="dashboard-card-sublabel">${lastRun.visitedCount}/${lastRun.totalCount} visited · ${completedAt}</span>`;
+  } else {
+    card4.innerHTML = `<span class="dashboard-card-label">Last Run</span><span class="dashboard-card-value dashboard-card-value--muted">No runs completed yet</span>`;
+  }
+
   const actions = document.createElement("div");
   actions.className = "dashboard-actions";
   const btnMaint = document.createElement("button");
@@ -50,6 +62,7 @@ export function renderDashboard(container, options) {
   container.appendChild(card1);
   container.appendChild(card2);
   container.appendChild(card3);
+  container.appendChild(card4);
   container.appendChild(actions);
 }
 

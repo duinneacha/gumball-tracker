@@ -1,6 +1,6 @@
 # Gumball Tracker — System Summary
 
-**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support.
+**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion and session lifecycle (PRD V2.1).
 
 **Audience:** For AI (e.g. DeepSeek) or new developers needing a full picture of the codebase, data model, modes, and implemented features.
 
@@ -48,7 +48,7 @@ No router; one shell. State is in `app.js` and refs passed into layout/UI.
 
 ## 2. Data Model & IndexedDB
 
-**Database:** `gumball-tracker`, version 2.
+**Database:** `gumball-tracker`, version 3.
 
 | Store          | Key   | Purpose |
 |----------------|-------|--------|
@@ -56,6 +56,7 @@ No router; one shell. State is in `app.js` and refs passed into layout/UI.
 | **runs**       | `id`  | Named routes. Fields: id, name, active. |
 | **runLocations** | `id` | Many-to-many run ↔ location. Fields: id, runId, locationId. Indexes: runId, locationId. |
 | **visits**     | `id`  | Historical visit records. Fields: id, locationId, runId, visitedAt, visitMethod. Indexes: locationId, runId, visitedAt. |
+| **runCompletions** | `id` | Last completed run (PRD V2.1). Fields: id ("last"), runId, runName, visitedCount, totalCount, completedAt. |
 
 **Location status (PRD V1.7):**
 
@@ -113,7 +114,7 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
 
 - **Mobile:** Sliding panel from bottom (max-height 70%); **tablet (≥768px):** content in side panel.
 - **open(location, openOptions):**
-  - **context: 'maintenance'** (default): View mode shows Edit, Archive, Delete. Edit mode: form (name, serviceFrequency, productType, notes) → Save/Cancel.
+  - **context: 'maintenance'** (default): View mode shows Location details, Runs (checkbox list to assign/unassign), Edit/Archive/Delete. Edit mode: form (name, serviceFrequency, productType, notes) → Save/Cancel. (PRD V2.2)
   - **context: 'operation'**: View mode shows only **Mark Visited**; no Edit/Archive/Delete.
 - Callbacks: `onClose`, `onSave`, `onArchive`, `onDelete`, `onMarkVisited`. Archive/Delete trigger snackbar with Undo; Mark Visited updates run session and refreshes Operation map.
 
@@ -179,9 +180,10 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
 | `ui/bottomSheet.js` | open(location, { context }), view/edit, Maintenance vs Operation actions |
 | `ui/snackbar.js` | showSnackbar(host, text, { undoLabel, duration, onUndo }) |
 | `domain/locationModel.js` | createLocation, softDelete, restore, archive, restoreFromArchive, saveLocation, getAllLocations |
-| `domain/runModel.js` | createRun, saveRun, getAllRuns, getLocationsForRun |
+| `domain/runModel.js` | createRun, saveRun, getAllRuns, getLocationsForRun, addLocationToRun, removeLocationFromRun, getRunsForLocation |
 | `domain/runSession.js` | createRunSession, markVisited, markUnvisited, isVisited (in-memory) |
 | `domain/visitModel.js` | createVisit, saveVisit, getAllVisits |
+| `domain/runCompletion.js` | saveLastRunCompletion, getLastRunCompletion |
 | `storage/indexedDb.js` | initStorage, putEntity, getEntity, getAllFromStore, bulkUpsert |
 | `storage/seed.js` | First-run seed, waypointToLocation, importFromJson |
 | `storage/backup.js` | exportAllData, importData |

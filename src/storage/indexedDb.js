@@ -3,7 +3,7 @@
 // will be added as features are implemented.
 
 const DB_NAME = "gumball-tracker";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise;
 
@@ -49,6 +49,11 @@ function openDatabase() {
         store.createIndex("locationId", "locationId", { unique: false });
         store.createIndex("runId", "runId", { unique: false });
         store.createIndex("visitedAt", "visitedAt", { unique: false });
+      }
+
+      // Run completions (PRD V2.1): last completed run for Dashboard
+      if (!db.objectStoreNames.contains("runCompletions")) {
+        db.createObjectStore("runCompletions", { keyPath: "id" });
       }
     };
 

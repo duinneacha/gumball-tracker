@@ -17,7 +17,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function renderViewMode(location, callbacks, context = "maintenance") {
+function renderViewMode(location, callbacks, context = "maintenance", runsOptions = null) {
   const content = document.createElement("div");
   content.className = "bottom-sheet-content";
   const name = location.name != null ? String(location.name) : "—";
@@ -29,6 +29,26 @@ function renderViewMode(location, callbacks, context = "maintenance") {
   const isOperation = context === "operation";
   const isDisruption = context === "disruption";
   const isReadOnlyWithMarkVisited = isOperation || isDisruption;
+  const showRunsSection = context === "maintenance" && runsOptions && Array.isArray(runsOptions.runs) && runsOptions.runs.length > 0;
+
+  let runsSectionHtml = "";
+  if (showRunsSection) {
+    const runs = runsOptions.runs;
+    const selectedSet = runsOptions.selectedRunIds instanceof Set
+      ? runsOptions.selectedRunIds
+      : new Set(Array.isArray(runsOptions.selectedRunIds) ? runsOptions.selectedRunIds : []);
+    const runItems = runs.map((run) => {
+      const checked = selectedSet.has(run.id);
+      return `<label class="bottom-sheet-run-item"><input type="checkbox" data-run-id="${escapeHtml(run.id)}" ${checked ? "checked" : ""} /><span>${escapeHtml(run.name ?? run.id)}</span></label>`;
+    }).join("");
+    runsSectionHtml = `
+      <div class="bottom-sheet-runs-section">
+        <h3 class="bottom-sheet-runs-title">Runs</h3>
+        <div class="bottom-sheet-runs-list">${runItems}</div>
+      </div>
+    `;
+  }
+
   const actionsHtml = isReadOnlyWithMarkVisited
     ? `<div class="bottom-sheet-actions">
          <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="mark-visited">Mark Visited</button>
@@ -48,8 +68,24 @@ function renderViewMode(location, callbacks, context = "maintenance") {
       <dt>Notes</dt><dd>${escapeHtml(notes)}</dd>
       <dt>Status</dt><dd>${escapeHtml(status)}</dd>
     </dl>
+    ${runsSectionHtml}
     ${actionsHtml}
   `;
+
+  if (showRunsSection && typeof runsOptions.onRunToggle === "function") {
+    const localSelected = new Set(
+      runsOptions.selectedRunIds instanceof Set ? runsOptions.selectedRunIds : (runsOptions.selectedRunIds || [])
+    );
+    content.querySelectorAll(".bottom-sheet-run-item input[data-run-id]").forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const runId = cb.getAttribute("data-run-id");
+        const checked = cb.checked;
+        if (checked) localSelected.add(runId);
+        else localSelected.delete(runId);
+        runsOptions.onRunToggle(runId, checked);
+      });
+    });
+  }
 
   if (isReadOnlyWithMarkVisited) {
     content.querySelector('[data-action="mark-visited"]')?.addEventListener("click", () => callbacks.onMarkVisited?.());
@@ -155,6 +191,7 @@ export function createBottomSheet(options) {
   let currentLocation = null;
   let mode = "view";
   let openContext = "maintenance";
+  let openRunsOptions = null;
 
   function doClose() {
     const wrapper = currentWrapper;
@@ -225,7 +262,7 @@ export function createBottomSheet(options) {
       onBack: () => doClose(),
     };
     const content = mode === "view"
-      ? renderViewMode(currentLocation, callbacks, openContext)
+      ? renderViewMode(currentLocation, callbacks, openContext, openRunsOptions)
       : renderEditMode({ ...currentLocation }, callbacks);
     contentSlot.appendChild(content);
   }
@@ -233,7 +270,7 @@ export function createBottomSheet(options) {
   /**
    * Open the bottom sheet with location details.
    * @param {object} location - { id, name, latitude, longitude, serviceFrequency, productType, notes, status }
-   * @param {{ context?: 'maintenance'|'operation' }} [openOptions] - When context is 'operation', shows Mark Visited only.
+   * @param {{ context?: 'maintenance'|'operation'|'disruption', runs?: object[], selectedRunIds?: Set<string>|string[], onRunToggle?: (runId: string, checked: boolean) => void }} [openOptions]
    */
   function open(location, openOptions = {}) {
     if (!location || typeof location !== "object") return;
@@ -241,6 +278,11 @@ export function createBottomSheet(options) {
     currentLocation = { ...location };
     mode = "view";
     openContext = openOptions.context === "operation" ? "operation" : (openOptions.context === "disruption" ? "disruption" : "maintenance");
+    openRunsOptions = (openContext === "maintenance" && openOptions.runs) ? {
+      runs: openOptions.runs,
+      selectedRunIds: openOptions.selectedRunIds instanceof Set ? openOptions.selectedRunIds : new Set(openOptions.selectedRunIds || []),
+      onRunToggle: openOptions.onRunToggle,
+    } : null;
     usedTablet = isTablet();
 
     const contentSlot = document.createElement("div");
