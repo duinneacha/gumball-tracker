@@ -1,6 +1,6 @@
 // Visit domain helpers and utilities for computing daily/session statistics.
 
-import { putEntity, getAllFromStore } from "../storage/indexedDb.js";
+import { putEntity, getAllFromStore, deleteEntity } from "../storage/indexedDb.js";
 
 export function createVisit({ id, locationId, runId = null, visitedAt, visitMethod }) {
   return {
@@ -19,5 +19,13 @@ export async function saveVisit(visit) {
 
 export async function getAllVisits() {
   return getAllFromStore("visits");
+}
+
+/**
+ * Delete a visit record by ID (PRD V2.5). Idempotent – no-op if visit doesn't exist.
+ * @param {string} visitId
+ */
+export async function deleteVisit(visitId) {
+  await deleteEntity("visits", visitId);
 }
 

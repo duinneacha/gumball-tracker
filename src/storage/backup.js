@@ -4,12 +4,13 @@
 import { getAllFromStore, putEntity } from "./indexedDb.js";
 
 export async function exportAllData() {
-  const [locations, runs, runLocations, visits, runCompletions] = await Promise.all([
+  const [locations, runs, runLocations, visits, runCompletions, activeSessions] = await Promise.all([
     getAllFromStore("locations"),
     getAllFromStore("runs"),
     getAllFromStore("runLocations"),
     getAllFromStore("visits"),
     getAllFromStore("runCompletions"),
+    getAllFromStore("activeSessions"),
   ]);
 
   return {
@@ -18,11 +19,12 @@ export async function exportAllData() {
     runLocations,
     visits,
     runCompletions: runCompletions ?? [],
+    activeSessions: activeSessions ?? [],
   };
 }
 
 export async function importData(json) {
-  const { locations = [], runs = [], runLocations = [], visits = [], runCompletions = [] } = json || {};
+  const { locations = [], runs = [], runLocations = [], visits = [], runCompletions = [], activeSessions = [] } = json || {};
 
   const all = [
     ...locations.map((l) => putEntity("locations", l)),
@@ -30,6 +32,7 @@ export async function importData(json) {
     ...runLocations.map((rl) => putEntity("runLocations", rl)),
     ...visits.map((v) => putEntity("visits", v)),
     ...(Array.isArray(runCompletions) ? runCompletions : []).map((rc) => putEntity("runCompletions", rc)),
+    ...(Array.isArray(activeSessions) ? activeSessions : []).map((as) => putEntity("activeSessions", as)),
   ];
 
   await Promise.all(all);

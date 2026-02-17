@@ -3,7 +3,7 @@
 // will be added as features are implemented.
 
 const DB_NAME = "gumball-tracker";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise;
 
@@ -54,6 +54,11 @@ function openDatabase() {
       // Run completions (PRD V2.1): last completed run for Dashboard
       if (!db.objectStoreNames.contains("runCompletions")) {
         db.createObjectStore("runCompletions", { keyPath: "id" });
+      }
+
+      // Active sessions (PRD V2.6): persist in-progress run for resume
+      if (!db.objectStoreNames.contains("activeSessions")) {
+        db.createObjectStore("activeSessions", { keyPath: "id" });
       }
     };
 

@@ -768,6 +768,15 @@ body {
   background-color: #d1d5db;
 }
 
+.bottom-sheet-btn-unvisited {
+  background-color: #9ca3af;
+  color: #1f2937;
+}
+
+.bottom-sheet-btn-unvisited:hover {
+  background-color: #6b7280;
+}
+
 .bottom-sheet-btn-danger {
   background-color: transparent;
   color: #dc2626;
@@ -837,6 +846,105 @@ body {
 .run-mgmt-host[aria-hidden="false"] {
   display: flex;
   pointer-events: auto;
+}
+
+/* Resume prompt (PRD V2.6) */
+.resume-prompt-host-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.resume-prompt-host-wrap[aria-hidden="false"] {
+  display: flex;
+  pointer-events: auto;
+}
+
+.resume-prompt-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.resume-prompt-overlay.open {
+  opacity: 1;
+}
+
+.resume-prompt-modal {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 20rem;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.resume-prompt-title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.resume-prompt-desc {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.resume-prompt-run-name {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.resume-prompt-meta {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.resume-prompt-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.resume-prompt-btn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.resume-prompt-btn-resume {
+  background-color: #059669;
+  color: #fff;
+}
+
+.resume-prompt-btn-resume:hover {
+  background-color: #047857;
+}
+
+.resume-prompt-btn-new {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.resume-prompt-btn-new:hover {
+  background-color: #d1d5db;
 }
 
 .run-mgmt-panel {

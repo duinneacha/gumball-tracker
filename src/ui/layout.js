@@ -354,9 +354,14 @@ export function createShellLayout(root, options) {
   runManagementHost.className = "run-mgmt-host";
   runManagementHost.setAttribute("aria-hidden", "true");
 
+  const resumePromptHost = document.createElement("div");
+  resumePromptHost.className = "resume-prompt-host-wrap";
+  resumePromptHost.setAttribute("aria-hidden", "true");
+
   app.appendChild(header);
   app.appendChild(main);
   app.appendChild(runManagementHost);
+  app.appendChild(resumePromptHost);
   app.appendChild(snackbarHost);
   app.appendChild(disruptionPanelHost);
   app.appendChild(sheetHost);
@@ -434,6 +439,9 @@ export function createShellLayout(root, options) {
     },
     getRunManagementHost() {
       return runManagementHost;
+    },
+    getResumePromptHost() {
+      return resumePromptHost;
     },
     getDisruptionPanelHost() {
       return disruptionPanelHost;

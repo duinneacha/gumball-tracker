@@ -20,12 +20,14 @@ import {
   updateRun,
   deleteRunAndLinks,
 } from "../domain/runModel.js";
-import { createRunSession, markVisited } from "../domain/runSession.js";
-import { createVisit, saveVisit } from "../domain/visitModel.js";
+import { createRunSession, markVisited, markUnvisited, makeVisitId, getVisitId, sessionFromStorage } from "../domain/runSession.js";
+import { createVisit, saveVisit, deleteVisit } from "../domain/visitModel.js";
 import { saveLastRunCompletion, getLastRunCompletion } from "../domain/runCompletion.js";
+import { saveActiveSession, loadActiveSession, clearActiveSession } from "../domain/activeSession.js";
 import { getNearestByCardinal } from "../utils/geo.js";
 import { createDisruptionPanel } from "../ui/disruptionPanel.js";
 import { createRunManagementPanel } from "../ui/runManagement.js";
+import { createResumePrompt } from "../ui/resumePrompt.js";
 
 const LAST_RUN_KEY = "gumball-lastRunId";
 
@@ -162,6 +164,56 @@ export function createApp(rootElement) {
 
   maintenanceFilterOptionsRef.current.onOpenRunManagement = openRunManagement;
 
+  async function checkForActiveSession() {
+    try {
+      const stored = await loadActiveSession();
+      if (!stored?.runId) return;
+      const run = await getEntity("runs", stored.runId);
+      if (!run) {
+        await clearActiveSession();
+        showSnackbar(snackbarHost, "Saved run no longer exists. Starting fresh.");
+        return;
+      }
+      const session = sessionFromStorage(stored);
+      if (!session) {
+        await clearActiveSession();
+        showSnackbar(snackbarHost, "Could not restore session. Starting fresh.");
+        return;
+      }
+      const locations = await getLocationsForRun(stored.runId);
+      const host = shell.getResumePromptHost();
+      createResumePrompt(host, {
+        sessionInfo: {
+          runName: run.name ?? stored.runId,
+          startedAt: stored.startedAt,
+          visitedCount: session.visitedLocationIds.size,
+          totalCount: locations.length,
+        },
+        onResume: () => resumeSession(session),
+        onStartNew: () => discardSession(),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("checkForActiveSession failed", err);
+      await clearActiveSession();
+    }
+  }
+
+  async function resumeSession(session) {
+    state.selectedRunId = session.runId;
+    state.runSession = session;
+    operationOptionsRef.current.selectedRunId = session.runId;
+    try {
+      localStorage.setItem(LAST_RUN_KEY, session.runId);
+    } catch (_) {}
+    mapController.setRun(session.runId);
+    shell.setMode("operation");
+  }
+
+  async function discardSession() {
+    await clearActiveSession();
+  }
+
   const disruptionRef = { current: { isDisruptionMode: false } };
   const onFabClickRef = { current: null };
   let disruptionPanelInstance = null;
@@ -186,16 +238,21 @@ export function createApp(rootElement) {
       totalCount: 0,
       resumeRunId: null,
       onFinishRun: null,
-      onRunSelect: (runId) => {
+      onRunSelect: async (runId) => {
+        if (state.runSession && state.selectedRunId) {
+          await clearActiveSession();
+        }
         state.selectedRunId = runId;
         operationOptionsRef.current.selectedRunId = runId;
         if (runId) {
           state.runSession = createRunSession(runId);
+          await saveActiveSession(state.runSession);
           try {
             localStorage.setItem(LAST_RUN_KEY, runId);
           } catch (_) {}
         } else {
           state.runSession = null;
+          await clearActiveSession();
           try {
             localStorage.setItem(LAST_RUN_KEY, "");
           } catch (_) {}
@@ -287,6 +344,7 @@ export function createApp(rootElement) {
         refreshOperationMapRef.current();
       }
     })
+    .then(() => checkForActiveSession())
     .catch((err) => {
       // eslint-disable-next-line no-console
       console.error("Storage or seed failed", err);
@@ -364,9 +422,18 @@ export function createApp(rootElement) {
         },
       });
     },
-    onMarkVisited: (location) => {
+    onMarkVisited: async (location) => {
       if (state.runSession && location?.id) {
-        markVisited(state.runSession, location.id);
+        const visitId = makeVisitId(state.runSession, location.id);
+        const visit = createVisit({
+          id: visitId,
+          locationId: location.id,
+          runId: state.runSession.runId,
+          visitedAt: Date.now(),
+          visitMethod: "manual",
+        });
+        await saveVisit(visit);
+        markVisited(state.runSession, location.id, visitId);
         if (state.isDisruptionMode) {
           const map = mapController.getLeafletMap();
           const gpsPos = mapController.getGpsPosition();
@@ -380,8 +447,55 @@ export function createApp(rootElement) {
         } else {
           refreshOperationMapRef.current?.();
         }
+        await saveActiveSession(state.runSession);
         shell.refreshSidePanel();
       }
+    },
+    onMarkUnvisited: async (location) => {
+      if (!state.runSession || !location?.id) return;
+      const visitId = getVisitId(state.runSession, location.id);
+      markUnvisited(state.runSession, location.id);
+      if (visitId) await deleteVisit(visitId);
+      if (state.isDisruptionMode) {
+        const map = mapController.getLeafletMap();
+        const gpsPos = mapController.getGpsPosition();
+        const center = gpsPos ? { lat: gpsPos.lat, lng: gpsPos.lng } : map.getCenter();
+        const locations = await getLocationsForRun(state.selectedRunId);
+        state.suggestionsByDirection = getNearestByCardinal(center.lat, center.lng, locations, state.runSession.visitedLocationIds);
+        if (disruptionPanelInstance) disruptionPanelInstance.updateSuggestions(state.suggestionsByDirection);
+      }
+      refreshOperationMapRef.current?.();
+      await saveActiveSession(state.runSession);
+      shell.refreshSidePanel();
+      const locationName = location.name ?? "location";
+      showSnackbar(snackbarHost, `Marked ${locationName} as unvisited.`, {
+        undoLabel: "Undo",
+        duration: 5000,
+        onUndo: async () => {
+          if (!state.runSession) return;
+          const newVisitId = makeVisitId(state.runSession, location.id);
+          const visit = createVisit({
+            id: newVisitId,
+            locationId: location.id,
+            runId: state.runSession.runId,
+            visitedAt: Date.now(),
+            visitMethod: "manual",
+          });
+          await saveVisit(visit);
+          markVisited(state.runSession, location.id, newVisitId);
+          if (state.isDisruptionMode) {
+            const map = mapController.getLeafletMap();
+            const gpsPos = mapController.getGpsPosition();
+            const center = gpsPos ? { lat: gpsPos.lat, lng: gpsPos.lng } : map.getCenter();
+            const locs = await getLocationsForRun(state.selectedRunId);
+            state.suggestionsByDirection = getNearestByCardinal(center.lat, center.lng, locs, state.runSession.visitedLocationIds);
+            if (disruptionPanelInstance) disruptionPanelInstance.updateSuggestions(state.suggestionsByDirection);
+          }
+          refreshOperationMapRef.current?.();
+          await saveActiveSession(state.runSession);
+          shell.refreshSidePanel();
+        },
+      });
     },
   });
 
@@ -421,11 +535,17 @@ export function createApp(rootElement) {
       }
       if (state.mode === MODES.OPERATION && !state.isDisruptionMode) {
         mapController.setSelectedLocationId(location.id);
-        bottomSheet.open(location, { context: "operation" });
+        bottomSheet.open(location, {
+          context: "operation",
+          isVisited: state.runSession?.visitedLocationIds?.has(location.id) ?? false,
+        });
       }
       if (state.mode === MODES.OPERATION && state.isDisruptionMode) {
         mapController.setSelectedLocationId(location.id);
-        bottomSheet.open(location, { context: "disruption" });
+        bottomSheet.open(location, {
+          context: "disruption",
+          isVisited: state.runSession?.visitedLocationIds?.has(location.id) ?? false,
+        });
       }
     },
   });
@@ -505,7 +625,7 @@ export function createApp(rootElement) {
     const completedAt = new Date().toISOString();
 
     for (const locationId of visitedIds) {
-      const visitId = `visit-${runId}-${locationId}-${session.startedAt}`;
+      const visitId = getVisitId(session, locationId) ?? `visit-${runId}-${locationId}-${session.startedAt}`;
       const visit = createVisit({
         id: visitId,
         locationId,
@@ -537,6 +657,7 @@ export function createApp(rootElement) {
     stopWatchingGPS();
     mapController.renderLocations([], { skipMaintenanceFilters: true, useCircleMarkers: true });
 
+    await clearActiveSession();
     shell.setMode("dashboard");
     await refreshDashboardData();
     shell.refreshSidePanel();

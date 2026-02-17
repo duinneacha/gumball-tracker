@@ -1,6 +1,6 @@
 # Gumball Tracker — System Summary
 
-**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion (V2.1), assignment (V2.2), management (V2.3), and resume last run (V2.4).
+**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion (V2.1), assignment (V2.2), management (V2.3), resume last run (V2.4), manual visit correction (V2.5), and persist active run session (V2.6).
 
 **Audience:** For AI (e.g. DeepSeek) or new developers needing a full picture of the codebase, data model, modes, and implemented features.
 
@@ -48,7 +48,7 @@ No router; one shell. State is in `app.js` and refs passed into layout/UI.
 
 ## 2. Data Model & IndexedDB
 
-**Database:** `gumball-tracker`, version 3.
+**Database:** `gumball-tracker`, version 4.
 
 | Store          | Key   | Purpose |
 |----------------|-------|--------|
@@ -57,6 +57,7 @@ No router; one shell. State is in `app.js` and refs passed into layout/UI.
 | **runLocations** | `id` | Many-to-many run ↔ location. Fields: id, runId, locationId. Indexes: runId, locationId. |
 | **visits**     | `id`  | Historical visit records. Fields: id, locationId, runId, visitedAt, visitMethod. Indexes: locationId, runId, visitedAt. |
 | **runCompletions** | `id` | Last completed run (PRD V2.1). Fields: id ("last"), runId, runName, visitedCount, totalCount, completedAt. |
+| **activeSessions** | `id` | Active run session (PRD V2.6). Single record id "current": runId, visitedLocationIds, visitIdsByLocation, startedAt, lastUpdatedAt. |
 
 **Location status (PRD V1.7):**
 
@@ -64,11 +65,11 @@ No router; one shell. State is in `app.js` and refs passed into layout/UI.
 - **archived** — Hidden from default views; can be shown via Maintenance filter; editable.
 - **deleted** — Soft delete; can be shown via Maintenance filter; recoverable.
 
-**Run session (in-memory only, PRD V1.8):**
+**Run session (PRD V1.8, V2.6):**
 
 - Created when user selects a run in Operation mode.
-- Holds: `runId`, `visitedLocationIds: Set<string>`, `startedAt`.
-- Not persisted; reset when switching runs. Visits store is for future persistence of visits.
+- Holds: `runId`, `visitedLocationIds: Set<string>`, `visitIdsByLocation: Map`, `startedAt`.
+- Persisted to activeSessions store on every change (mark visited/unvisited); survives page reload. Prompt to resume on app load.
 
 ---
 
@@ -185,6 +186,8 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
 | `domain/runSession.js` | createRunSession, markVisited, markUnvisited, isVisited (in-memory) |
 | `domain/visitModel.js` | createVisit, saveVisit, getAllVisits |
 | `domain/runCompletion.js` | saveLastRunCompletion, getLastRunCompletion |
+| `domain/activeSession.js` | saveActiveSession, loadActiveSession, clearActiveSession |
+| `ui/resumePrompt.js` | createResumePrompt (PRD V2.6) |
 | `storage/indexedDb.js` | initStorage, putEntity, getEntity, getAllFromStore, bulkUpsert |
 | `storage/seed.js` | First-run seed, waypointToLocation, importFromJson |
 | `storage/backup.js` | exportAllData, importData |

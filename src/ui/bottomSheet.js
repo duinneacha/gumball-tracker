@@ -17,7 +17,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function renderViewMode(location, callbacks, context = "maintenance", runsOptions = null) {
+function renderViewMode(location, callbacks, context = "maintenance", runsOptions = null, operationOptions = null) {
   const content = document.createElement("div");
   content.className = "bottom-sheet-content";
   const name = location.name != null ? String(location.name) : "—";
@@ -29,6 +29,7 @@ function renderViewMode(location, callbacks, context = "maintenance", runsOption
   const isOperation = context === "operation";
   const isDisruption = context === "disruption";
   const isReadOnlyWithMarkVisited = isOperation || isDisruption;
+  const isVisited = operationOptions?.isVisited === true;
   const showRunsSection = context === "maintenance" && runsOptions && Array.isArray(runsOptions.runs) && runsOptions.runs.length > 0;
 
   let runsSectionHtml = "";
@@ -51,7 +52,9 @@ function renderViewMode(location, callbacks, context = "maintenance", runsOption
 
   const actionsHtml = isReadOnlyWithMarkVisited
     ? `<div class="bottom-sheet-actions">
-         <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="mark-visited">Mark Visited</button>
+         ${isVisited
+      ? '<button type="button" class="bottom-sheet-btn bottom-sheet-btn-unvisited" data-action="mark-unvisited">Mark Unvisited</button>'
+      : '<button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="mark-visited">Mark Visited</button>'}
          ${isDisruption ? '<button type="button" class="bottom-sheet-btn bottom-sheet-btn-secondary" data-action="back">Back</button>' : ""}
        </div>`
     : `<div class="bottom-sheet-actions">
@@ -89,6 +92,7 @@ function renderViewMode(location, callbacks, context = "maintenance", runsOption
 
   if (isReadOnlyWithMarkVisited) {
     content.querySelector('[data-action="mark-visited"]')?.addEventListener("click", () => callbacks.onMarkVisited?.());
+    content.querySelector('[data-action="mark-unvisited"]')?.addEventListener("click", () => callbacks.onMarkUnvisited?.());
     content.querySelector('[data-action="back"]')?.addEventListener("click", () => callbacks.onBack?.());
   } else {
     content.querySelector('[data-action="edit"]')?.addEventListener("click", () => callbacks.onEdit());
@@ -181,10 +185,11 @@ function renderHeader(closeBtn) {
  * @param {(location: object) => void} [options.onSave] - Called with updated location on Save
  * @param {(location: object) => void} [options.onArchive] - Called with location on Archive
  * @param {(location: object) => void} [options.onDelete] - Called with location on Delete
- * @param {() => void} [options.onMarkVisited] - Called when Mark Visited is pressed (Operation mode)
+ * @param {(location: object) => void} [options.onMarkVisited] - Called when Mark Visited is pressed (Operation mode)
+ * @param {(location: object) => void} [options.onMarkUnvisited] - Called when Mark Unvisited is pressed (Operation mode, PRD V2.5)
  */
 export function createBottomSheet(options) {
-  const { sheetHost, sidePanel, onClose, onSave, onArchive, onDelete, onMarkVisited } = options;
+  const { sheetHost, sidePanel, onClose, onSave, onArchive, onDelete, onMarkVisited, onMarkUnvisited } = options;
   let currentWrapper = null;
   let usedTablet = false;
   let touchStartY = 0;
@@ -192,6 +197,7 @@ export function createBottomSheet(options) {
   let mode = "view";
   let openContext = "maintenance";
   let openRunsOptions = null;
+  let openOperationOptions = null;
 
   function doClose() {
     const wrapper = currentWrapper;
@@ -259,10 +265,14 @@ export function createBottomSheet(options) {
         if (typeof onMarkVisited === "function") onMarkVisited(currentLocation);
         doClose();
       },
+      onMarkUnvisited: () => {
+        if (typeof onMarkUnvisited === "function") onMarkUnvisited(currentLocation);
+        doClose();
+      },
       onBack: () => doClose(),
     };
     const content = mode === "view"
-      ? renderViewMode(currentLocation, callbacks, openContext, openRunsOptions)
+      ? renderViewMode(currentLocation, callbacks, openContext, openRunsOptions, openOperationOptions)
       : renderEditMode({ ...currentLocation }, callbacks);
     contentSlot.appendChild(content);
   }
@@ -270,7 +280,7 @@ export function createBottomSheet(options) {
   /**
    * Open the bottom sheet with location details.
    * @param {object} location - { id, name, latitude, longitude, serviceFrequency, productType, notes, status }
-   * @param {{ context?: 'maintenance'|'operation'|'disruption', runs?: object[], selectedRunIds?: Set<string>|string[], onRunToggle?: (runId: string, checked: boolean) => void }} [openOptions]
+   * @param {{ context?: 'maintenance'|'operation'|'disruption', runs?: object[], selectedRunIds?: Set<string>|string[], onRunToggle?: (runId: string, checked: boolean) => void, isVisited?: boolean }} [openOptions]
    */
   function open(location, openOptions = {}) {
     if (!location || typeof location !== "object") return;
@@ -278,6 +288,7 @@ export function createBottomSheet(options) {
     currentLocation = { ...location };
     mode = "view";
     openContext = openOptions.context === "operation" ? "operation" : (openOptions.context === "disruption" ? "disruption" : "maintenance");
+    openOperationOptions = (openContext === "operation" || openContext === "disruption") ? { isVisited: openOptions.isVisited } : null;
     openRunsOptions = (openContext === "maintenance" && openOptions.runs) ? {
       runs: openOptions.runs,
       selectedRunIds: openOptions.selectedRunIds instanceof Set ? openOptions.selectedRunIds : new Set(openOptions.selectedRunIds || []),
