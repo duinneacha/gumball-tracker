@@ -3,7 +3,7 @@
 // will be added as features are implemented.
 
 const DB_NAME = "gumball-tracker";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise;
 
@@ -24,6 +24,30 @@ function openDatabase() {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
+      const oldVersion = event.oldVersion;
+
+      // Migration: runCompletions "last" -> multi-record (PRD V2.7)
+      if (oldVersion > 0 && oldVersion < 5 && db.objectStoreNames.contains("runCompletions")) {
+        const tx = db.transaction("runCompletions", "readwrite");
+        const store = tx.objectStore("runCompletions");
+        const req = store.get("last");
+        req.onsuccess = () => {
+          const old = req.result;
+          if (old && old.id === "last") {
+            const newId = `completion-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            store.put({
+              id: newId,
+              runId: old.runId,
+              runName: old.runName,
+              visitedCount: old.visitedCount,
+              totalCount: old.totalCount,
+              completedAt: old.completedAt,
+              durationMinutes: old.durationMinutes,
+            });
+            store.delete("last");
+          }
+        };
+      }
 
       // Locations store
       if (!db.objectStoreNames.contains("locations")) {

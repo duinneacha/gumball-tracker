@@ -358,10 +358,15 @@ export function createShellLayout(root, options) {
   resumePromptHost.className = "resume-prompt-host-wrap";
   resumePromptHost.setAttribute("aria-hidden", "true");
 
+  const runHistoryHost = document.createElement("div");
+  runHistoryHost.className = "run-history-host";
+  runHistoryHost.setAttribute("aria-hidden", "true");
+
   app.appendChild(header);
   app.appendChild(main);
   app.appendChild(runManagementHost);
   app.appendChild(resumePromptHost);
+  app.appendChild(runHistoryHost);
   app.appendChild(snackbarHost);
   app.appendChild(disruptionPanelHost);
   app.appendChild(sheetHost);
@@ -442,6 +447,9 @@ export function createShellLayout(root, options) {
     },
     getResumePromptHost() {
       return resumePromptHost;
+    },
+    getRunHistoryHost() {
+      return runHistoryHost;
     },
     getDisruptionPanelHost() {
       return disruptionPanelHost;

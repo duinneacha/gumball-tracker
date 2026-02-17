@@ -1,6 +1,6 @@
 # Gumball Tracker — System Summary
 
-**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion (V2.1), assignment (V2.2), management (V2.3), resume last run (V2.4), manual visit correction (V2.5), and persist active run session (V2.6).
+**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion (V2.1), assignment (V2.2), management (V2.3), resume last run (V2.4), manual visit correction (V2.5), persist active run session (V2.6), and run history view (V2.7).
 
 **Audience:** For AI (e.g. DeepSeek) or new developers needing a full picture of the codebase, data model, modes, and implemented features.
 
@@ -48,7 +48,7 @@ No router; one shell. State is in `app.js` and refs passed into layout/UI.
 
 ## 2. Data Model & IndexedDB
 
-**Database:** `gumball-tracker`, version 4.
+**Database:** `gumball-tracker`, version 5.
 
 | Store          | Key   | Purpose |
 |----------------|-------|--------|
@@ -56,7 +56,7 @@ No router; one shell. State is in `app.js` and refs passed into layout/UI.
 | **runs**       | `id`  | Named routes. Fields: id, name, active. |
 | **runLocations** | `id` | Many-to-many run ↔ location. Fields: id, runId, locationId. Indexes: runId, locationId. |
 | **visits**     | `id`  | Historical visit records. Fields: id, locationId, runId, visitedAt, visitMethod. Indexes: locationId, runId, visitedAt. |
-| **runCompletions** | `id` | Last completed run (PRD V2.1). Fields: id ("last"), runId, runName, visitedCount, totalCount, completedAt. |
+| **runCompletions** | `id` | Multiple completion records (PRD V2.7). Fields: id (auto-generated), runId, runName, visitedCount, totalCount, completedAt, durationMinutes. |
 | **activeSessions** | `id` | Active run session (PRD V2.6). Single record id "current": runId, visitedLocationIds, visitIdsByLocation, startedAt, lastUpdatedAt. |
 
 **Location status (PRD V1.7):**
@@ -79,7 +79,7 @@ Three modes, selected by header tabs (and in Maintenance, a floating ⚙️ butt
 
 1. **Maintenance** — Manage locations: filter (Active/Archived/Deleted, unassigned only, search), open marker → bottom sheet (Edit / Archive / Delete), import seed or backup JSON, export backup JSON. Map shows circle markers; filters apply (status → unassigned → search).
 2. **Operation** — Run-based fieldwork: select run from header dropdown, map shows only that run’s (active) locations. Tap marker → sheet with “Mark Visited”. Visited markers styled grey; progress “Run: {name} | {visited} / {total} visited” in side panel. Last selected run id in `localStorage` (`gumball-lastRunId`); placeholder “Resume last run” when set.
-3. **Dashboard** — Placeholder; no behaviour yet.
+3. **Dashboard** — Cards for total locations, runs, last visit, last run; "Resume Last Run" card; "View Run History" button opens history panel (PRD V2.7).
 
 Mode is stored in app state; switching modes updates map and side panel (and in Operation, run selector). Map instance is never re-created; only the feature group is cleared/refilled.
 
@@ -158,6 +158,13 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
 
 ---
 
+- **V2.7 — Run History view**
+  - runCompletions store holds multiple records (id auto-generated); migration from v4 "last" record.
+  - addRunCompletion, getAllCompletions, getLastRunCompletion; duration computed at finish and stored.
+  - "View Run History" button on Dashboard opens overlay panel; list sorted newest first; run name, date, visited/total, duration.
+
+---
+
 ## 9. Conventions & Constraints
 
 - **No new dependencies** beyond Leaflet and build tooling; no GPS in this version.
@@ -177,15 +184,16 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
 | `app/app.js` | State, refs, shell, mapController, bottomSheet, refreshMaintenanceMap, refreshOperationMap, onRunSelect, onMarkVisited, init chain |
 | `map/initMap.js` | L.map, tiles, L.Icon.Default |
 | `map/mapController.js` | renderLocations (Maintenance + Operation), setSelectedLocationId, setMode, setRun |
-| `ui/layout.js` | Shell, header (run selector when Operation), filter bar + Runs button + import/export when Maintenance, side panel, run management host, updateHeaderOperation |
+| `ui/layout.js` | Shell, header (run selector when Operation), filter bar + Runs button + import/export when Maintenance, side panel, run management host, run history host, updateHeaderOperation |
 | `ui/runManagement.js` | Run Management panel (PRD V2.3): list, create, edit, delete runs |
+| `ui/runHistory.js` | Run History panel (PRD V2.7): list of completed runs, newest first |
 | `ui/bottomSheet.js` | open(location, { context }), view/edit, Maintenance vs Operation actions |
 | `ui/snackbar.js` | showSnackbar(host, text, { undoLabel, duration, onUndo }) |
 | `domain/locationModel.js` | createLocation, softDelete, restore, archive, restoreFromArchive, saveLocation, getAllLocations |
 | `domain/runModel.js` | createRun, saveRun, getAllRuns, getLocationsForRun, addLocationToRun, removeLocationFromRun, getRunsForLocation, createRunFromName, updateRun, deleteRunAndLinks, getAllRunsWithLocationCount |
 | `domain/runSession.js` | createRunSession, markVisited, markUnvisited, isVisited (in-memory) |
 | `domain/visitModel.js` | createVisit, saveVisit, getAllVisits |
-| `domain/runCompletion.js` | saveLastRunCompletion, getLastRunCompletion |
+| `domain/runCompletion.js` | addRunCompletion, getAllCompletions, getLastRunCompletion |
 | `domain/activeSession.js` | saveActiveSession, loadActiveSession, clearActiveSession |
 | `ui/resumePrompt.js` | createResumePrompt (PRD V2.6) |
 | `storage/indexedDb.js` | initStorage, putEntity, getEntity, getAllFromStore, bulkUpsert |

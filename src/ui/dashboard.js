@@ -7,7 +7,7 @@
 /**
  * Render dashboard content into the given container.
  * @param {HTMLElement} container
- * @param {{ activeCount: number, runsCount: number, lastVisitText: string, lastRun?: object | null, onGoToMaintenance: () => void, onGoToOperation: () => void, onResumeLastRun?: () => void, onOpenRunManagement?: () => void }} options
+ * @param {{ activeCount: number, runsCount: number, lastVisitText: string, lastRun?: object | null, onGoToMaintenance: () => void, onGoToOperation: () => void, onResumeLastRun?: () => void, onOpenRunManagement?: () => void, onOpenRunHistory?: () => void }} options
  */
 export function renderDashboard(container, options) {
   const {
@@ -20,6 +20,7 @@ export function renderDashboard(container, options) {
     onGoToOperation,
     onResumeLastRun,
     onOpenRunManagement,
+    onOpenRunHistory,
   } = options;
 
   container.innerHTML = "";
@@ -78,6 +79,15 @@ export function renderDashboard(container, options) {
     card5.appendChild(createLink);
   }
 
+  const historyBtnWrap = document.createElement("div");
+  historyBtnWrap.className = "dashboard-history-wrap";
+  const historyBtn = document.createElement("button");
+  historyBtn.type = "button";
+  historyBtn.className = "dashboard-btn-link";
+  historyBtn.textContent = "View Run History";
+  historyBtn.addEventListener("click", () => typeof onOpenRunHistory === "function" && onOpenRunHistory());
+  historyBtnWrap.appendChild(historyBtn);
+
   const actions = document.createElement("div");
   actions.className = "dashboard-actions";
   const btnMaint = document.createElement("button");
@@ -98,6 +108,7 @@ export function renderDashboard(container, options) {
   container.appendChild(card3);
   container.appendChild(card4);
   container.appendChild(card5);
+  container.appendChild(historyBtnWrap);
   container.appendChild(actions);
 }
 

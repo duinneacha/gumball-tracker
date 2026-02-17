@@ -22,12 +22,13 @@ import {
 } from "../domain/runModel.js";
 import { createRunSession, markVisited, markUnvisited, makeVisitId, getVisitId, sessionFromStorage } from "../domain/runSession.js";
 import { createVisit, saveVisit, deleteVisit } from "../domain/visitModel.js";
-import { saveLastRunCompletion, getLastRunCompletion } from "../domain/runCompletion.js";
+import { addRunCompletion, getLastRunCompletion, getAllCompletions } from "../domain/runCompletion.js";
 import { saveActiveSession, loadActiveSession, clearActiveSession } from "../domain/activeSession.js";
 import { getNearestByCardinal } from "../utils/geo.js";
 import { createDisruptionPanel } from "../ui/disruptionPanel.js";
 import { createRunManagementPanel } from "../ui/runManagement.js";
 import { createResumePrompt } from "../ui/resumePrompt.js";
+import { createRunHistoryPanel } from "../ui/runHistory.js";
 
 const LAST_RUN_KEY = "gumball-lastRunId";
 
@@ -77,6 +78,7 @@ export function createApp(rootElement) {
   const refreshDashboardDataRef = { current: null };
   const runManagementRunsRef = { current: [] };
   let runManagementPanelInstance = null;
+  let runHistoryPanelInstance = null;
 
   const maintenanceFilterOptionsRef = {
     current: {
@@ -623,6 +625,9 @@ export function createApp(rootElement) {
     const run = runs.find((r) => r.id === runId);
     const runName = run?.name ?? runId;
     const completedAt = new Date().toISOString();
+    const durationMinutes = typeof session.startedAt === "number"
+      ? Math.round((Date.now() - session.startedAt) / 60000)
+      : null;
 
     for (const locationId of visitedIds) {
       const visitId = getVisitId(session, locationId) ?? `visit-${runId}-${locationId}-${session.startedAt}`;
@@ -636,12 +641,13 @@ export function createApp(rootElement) {
       await saveVisit(visit);
     }
 
-    await saveLastRunCompletion({
+    await addRunCompletion({
       runId,
       runName,
       visitedCount,
       totalCount,
       completedAt,
+      durationMinutes,
     });
 
     state.selectedRunId = null;
@@ -753,7 +759,31 @@ export function createApp(rootElement) {
       onGoToOperation: () => shell.setMode("operation"),
       onResumeLastRun: resumeLastRun,
       onOpenRunManagement: openRunManagement,
+      onOpenRunHistory: openRunHistory,
     };
+  }
+
+  async function openRunHistory() {
+    const completions = await getAllCompletions(500);
+    const host = shell.getRunHistoryHost();
+    host._onBackdropClick = (e) => { if (e.target === host) closeRunHistory(); };
+    host.addEventListener("click", host._onBackdropClick);
+    runHistoryPanelInstance = createRunHistoryPanel(host, {
+      completions,
+      onClose: closeRunHistory,
+    });
+  }
+
+  function closeRunHistory() {
+    const host = shell.getRunHistoryHost();
+    if (host._onBackdropClick) {
+      host.removeEventListener("click", host._onBackdropClick);
+    }
+    if (runHistoryPanelInstance) {
+      runHistoryPanelInstance.destroy();
+      runHistoryPanelInstance = null;
+    }
+    host.setAttribute("aria-hidden", "true");
   }
 
   async function resumeLastRun() {
