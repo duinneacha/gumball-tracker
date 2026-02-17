@@ -176,11 +176,12 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
 | `app/app.js` | State, refs, shell, mapController, bottomSheet, refreshMaintenanceMap, refreshOperationMap, onRunSelect, onMarkVisited, init chain |
 | `map/initMap.js` | L.map, tiles, L.Icon.Default |
 | `map/mapController.js` | renderLocations (Maintenance + Operation), setSelectedLocationId, setMode, setRun |
-| `ui/layout.js` | Shell, header (run selector when Operation), filter bar + import/export when Maintenance, side panel, updateHeaderOperation |
+| `ui/layout.js` | Shell, header (run selector when Operation), filter bar + Runs button + import/export when Maintenance, side panel, run management host, updateHeaderOperation |
+| `ui/runManagement.js` | Run Management panel (PRD V2.3): list, create, edit, delete runs |
 | `ui/bottomSheet.js` | open(location, { context }), view/edit, Maintenance vs Operation actions |
 | `ui/snackbar.js` | showSnackbar(host, text, { undoLabel, duration, onUndo }) |
 | `domain/locationModel.js` | createLocation, softDelete, restore, archive, restoreFromArchive, saveLocation, getAllLocations |
-| `domain/runModel.js` | createRun, saveRun, getAllRuns, getLocationsForRun, addLocationToRun, removeLocationFromRun, getRunsForLocation |
+| `domain/runModel.js` | createRun, saveRun, getAllRuns, getLocationsForRun, addLocationToRun, removeLocationFromRun, getRunsForLocation, createRunFromName, updateRun, deleteRunAndLinks, getAllRunsWithLocationCount |
 | `domain/runSession.js` | createRunSession, markVisited, markUnvisited, isVisited (in-memory) |
 | `domain/visitModel.js` | createVisit, saveVisit, getAllVisits |
 | `domain/runCompletion.js` | saveLastRunCompletion, getLastRunCompletion |

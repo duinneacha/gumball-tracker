@@ -48,11 +48,12 @@ function createMaintenanceToggleButton(container, options) {
 }
 
 /**
- * Create maintenance filter bar (PRD V1.7): status chips, unassigned toggle, search.
+ * Create maintenance filter bar (PRD V1.7, V2.3): status chips, unassigned toggle, search, Runs button.
  * @param {{ active: boolean, archived: boolean, deleted: boolean, unassignedOnly: boolean, searchQuery: string }} filters
  * @param {(filters: object) => void} onFiltersChange
+ * @param {() => void} [onOpenRunManagement]
  */
-function createMaintenanceFilterBar(filters, onFiltersChange) {
+function createMaintenanceFilterBar(filters, onFiltersChange, onOpenRunManagement) {
   const bar = document.createElement("div");
   bar.className = "maintenance-filter-bar";
 
@@ -101,6 +102,15 @@ function createMaintenanceFilterBar(filters, onFiltersChange) {
   });
 
   bar.appendChild(chipsWrap);
+
+  if (typeof onOpenRunManagement === "function") {
+    const runsBtn = document.createElement("button");
+    runsBtn.type = "button";
+    runsBtn.className = "maintenance-runs-btn";
+    runsBtn.textContent = "Runs";
+    runsBtn.addEventListener("click", onOpenRunManagement);
+    bar.appendChild(runsBtn);
+  }
   bar.appendChild(unassignedLabel);
   bar.appendChild(searchInput);
   return bar;
@@ -142,9 +152,10 @@ function renderSidePanelContent(sidePanel, mode, options = {}) {
     wrap.className = "side-panel-maintenance";
 
     if (maintenanceFilters && typeof onMaintenanceFiltersChange === "function") {
+      const onOpenRunManagement = filterOpts?.onOpenRunManagement;
       const filterBar = createMaintenanceFilterBar(maintenanceFilters, (next) => {
         onMaintenanceFiltersChange(next);
-      });
+      }, onOpenRunManagement);
       wrap.appendChild(filterBar);
     }
 
@@ -339,8 +350,13 @@ export function createShellLayout(root, options) {
   const sheetHost = document.createElement("div");
   sheetHost.className = "bottom-sheet-host";
 
+  const runManagementHost = document.createElement("div");
+  runManagementHost.className = "run-mgmt-host";
+  runManagementHost.setAttribute("aria-hidden", "true");
+
   app.appendChild(header);
   app.appendChild(main);
+  app.appendChild(runManagementHost);
   app.appendChild(snackbarHost);
   app.appendChild(disruptionPanelHost);
   app.appendChild(sheetHost);
@@ -415,6 +431,9 @@ export function createShellLayout(root, options) {
   return {
     getMapContainer() {
       return mapContainer;
+    },
+    getRunManagementHost() {
+      return runManagementHost;
     },
     getDisruptionPanelHost() {
       return disruptionPanelHost;

@@ -10,12 +10,22 @@ import { createShellLayout } from "../ui/layout.js";
 import { createBottomSheet } from "../ui/bottomSheet.js";
 import { showSnackbar } from "../ui/snackbar.js";
 import { exportAllData } from "../storage/backup.js";
-import { getAllRuns, getLocationsForRun, addLocationToRun, removeLocationFromRun } from "../domain/runModel.js";
+import {
+  getAllRuns,
+  getLocationsForRun,
+  addLocationToRun,
+  removeLocationFromRun,
+  getAllRunsWithLocationCount,
+  createRunFromName,
+  updateRun,
+  deleteRunAndLinks,
+} from "../domain/runModel.js";
 import { createRunSession, markVisited } from "../domain/runSession.js";
 import { createVisit, saveVisit } from "../domain/visitModel.js";
 import { saveLastRunCompletion, getLastRunCompletion } from "../domain/runCompletion.js";
 import { getNearestByCardinal } from "../utils/geo.js";
 import { createDisruptionPanel } from "../ui/disruptionPanel.js";
+import { createRunManagementPanel } from "../ui/runManagement.js";
 
 const LAST_RUN_KEY = "gumball-lastRunId";
 
@@ -63,9 +73,13 @@ export function createApp(rootElement) {
   const onImportSuccessRef = { current: null };
   const refreshMaintenanceMapRef = { current: null };
   const refreshDashboardDataRef = { current: null };
+  const runManagementRunsRef = { current: [] };
+  let runManagementPanelInstance = null;
+
   const maintenanceFilterOptionsRef = {
     current: {
       maintenanceFilters: state.maintenanceFilters,
+      onOpenRunManagement: null,
       onMaintenanceFiltersChange: (next) => {
         state.maintenanceFilters = next;
         maintenanceFilterOptionsRef.current.maintenanceFilters = next;
@@ -87,6 +101,66 @@ export function createApp(rootElement) {
     },
   };
   maintenanceFilterOptionsRef.current.maintenanceFilters = state.maintenanceFilters;
+
+  async function openRunManagement() {
+    runManagementRunsRef.current = await getAllRunsWithLocationCount();
+    const host = shell.getRunManagementHost();
+    host.setAttribute("aria-hidden", "false");
+    host._onBackdropClick = (e) => { if (e.target === host) closeRunManagement(); };
+    host.addEventListener("click", host._onBackdropClick);
+    runManagementPanelInstance = createRunManagementPanel(host, {
+      runsRef: runManagementRunsRef,
+      onClose: closeRunManagement,
+      onCreateRun: async (name) => {
+        await createRunFromName(name);
+        await refreshRunList();
+        operationOptionsRef.current.runs = await getAllRuns();
+        shell.updateHeaderOperation();
+        showSnackbar(snackbarHost, "Run created");
+        if (typeof refreshMaintenanceMapRef.current === "function") {
+          await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+        }
+      },
+      onUpdateRun: async (runId, newName) => {
+        await updateRun(runId, newName);
+        await refreshRunList();
+        operationOptionsRef.current.runs = await getAllRuns();
+        shell.updateHeaderOperation();
+        showSnackbar(snackbarHost, "Run updated");
+      },
+      onDeleteRun: async (runId) => {
+        await deleteRunAndLinks(runId);
+        await refreshRunList();
+        operationOptionsRef.current.runs = await getAllRuns();
+        shell.updateHeaderOperation();
+        showSnackbar(snackbarHost, "Run deleted");
+        if (typeof refreshMaintenanceMapRef.current === "function") {
+          await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+        }
+      },
+    });
+  }
+
+  async function refreshRunList() {
+    runManagementRunsRef.current = await getAllRunsWithLocationCount();
+    if (runManagementPanelInstance) runManagementPanelInstance.render();
+  }
+
+  function closeRunManagement() {
+    if (runManagementPanelInstance) {
+      runManagementPanelInstance.destroy();
+      runManagementPanelInstance = null;
+    }
+    const host = shell.getRunManagementHost();
+    if (host._onBackdropClick) {
+      host.removeEventListener("click", host._onBackdropClick);
+      host._onBackdropClick = null;
+    }
+    host.setAttribute("aria-hidden", "true");
+    host.innerHTML = "";
+  }
+
+  maintenanceFilterOptionsRef.current.onOpenRunManagement = openRunManagement;
 
   const disruptionRef = { current: { isDisruptionMode: false } };
   const onFabClickRef = { current: null };
