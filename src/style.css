@@ -217,6 +217,37 @@ body {
   background-color: #d1d5db;
 }
 
+.dashboard-btn-resume {
+  margin-top: 0.5rem;
+  width: 100%;
+  background-color: #059669;
+  color: #fff;
+}
+
+.dashboard-btn-resume:hover {
+  background-color: #047857;
+}
+
+.dashboard-btn-link {
+  margin-top: 0.5rem;
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+  background: none;
+  border: none;
+  color: #f97316;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.dashboard-btn-link:hover {
+  color: #ea580c;
+}
+
+.dashboard-card-resume .dashboard-btn,
+.dashboard-card-resume .dashboard-btn-link {
+  display: block;
+}
+
 /* Disruption Mode: direction panel */
 .disruption-panel-host {
   position: fixed;

@@ -599,7 +599,7 @@ export function createApp(rootElement) {
   }
 
   async function refreshDashboardData() {
-    const [locations, runs, visits, lastRun] = await Promise.all([
+    const [locations, runs, visits, lastRunRaw] = await Promise.all([
       getAllFromStore("locations"),
       getAllFromStore("runs"),
       getAllFromStore("visits"),
@@ -614,15 +614,42 @@ export function createApp(rootElement) {
       const loc = await getEntity("locations", v.locationId);
       lastVisitText = formatLastVisit(v.visitedAt, loc?.name);
     }
+    let lastRun = lastRunRaw;
+    let lastRunResumable = false;
+    if (lastRun?.runId) {
+      const runExists = await getEntity("runs", lastRun.runId);
+      if (!runExists) lastRun = null;
+      else lastRunResumable = true;
+    }
     dashboardDataRef.current = {
       ...dashboardDataRef.current,
       activeCount,
       runsCount,
       lastVisitText,
       lastRun,
+      lastRunResumable,
       onGoToMaintenance: () => shell.setMode("maintenance"),
       onGoToOperation: () => shell.setMode("operation"),
+      onResumeLastRun: resumeLastRun,
+      onOpenRunManagement: openRunManagement,
     };
+  }
+
+  async function resumeLastRun() {
+    const lastRun = await getLastRunCompletion();
+    if (!lastRun?.runId) {
+      showSnackbar(snackbarHost, "No run to resume");
+      return;
+    }
+    const run = await getEntity("runs", lastRun.runId);
+    if (!run) {
+      showSnackbar(snackbarHost, "Run no longer exists");
+      await refreshDashboardData();
+      if (state.mode === MODES.DASHBOARD) shell.refreshSidePanel();
+      return;
+    }
+    operationOptionsRef.current.onRunSelect(lastRun.runId);
+    shell.setMode("operation");
   }
 
   function enterDisruption() {

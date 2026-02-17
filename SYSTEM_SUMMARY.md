@@ -1,6 +1,6 @@
 # Gumball Tracker — System Summary
 
-**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion and session lifecycle (PRD V2.1).
+**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion (V2.1), assignment (V2.2), management (V2.3), and resume last run (V2.4).
 
 **Audience:** For AI (e.g. DeepSeek) or new developers needing a full picture of the codebase, data model, modes, and implemented features.
 
