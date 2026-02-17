@@ -22,6 +22,16 @@ export async function getAllVisits() {
 }
 
 /**
+ * Get all visits for a run (PRD V2.8). Used for run detail view to determine visited locations.
+ * @param {string} runId
+ * @returns {Promise<Array<{ id: string, locationId: string, runId: string, visitedAt: number }>>}
+ */
+export async function getVisitsForRun(runId) {
+  const all = await getAllFromStore("visits");
+  return (all || []).filter((v) => v.runId === runId);
+}
+
+/**
  * Delete a visit record by ID (PRD V2.5). Idempotent – no-op if visit doesn't exist.
  * @param {string} visitId
  */

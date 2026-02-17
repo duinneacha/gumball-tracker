@@ -32,12 +32,13 @@ function formatDuration(minutes) {
  * Create the Run History panel.
  * @param {HTMLElement} host - Container to render into
  * @param {object} options
- * @param {Array<{ runName: string, completedAt: string, visitedCount: number, totalCount: number, durationMinutes?: number }>} options.completions - Sorted newest first
+ * @param {Array<{ id: string, runId: string, runName: string, completedAt: string, visitedCount: number, totalCount: number, durationMinutes?: number }>} options.completions - Sorted newest first
  * @param {() => void} options.onClose - Close panel, return to Dashboard
+ * @param {(completion: object) => void} [options.onRunClick] - Called when a run entry is tapped (PRD V2.8)
  * @returns {{ render: (completions?: Array) => void, destroy: () => void }}
  */
 export function createRunHistoryPanel(host, options) {
-  const { completions = [], onClose } = options;
+  const { completions = [], onClose, onRunClick } = options;
   let panelEl = null;
 
   function renderList(list) {
@@ -54,6 +55,18 @@ export function createRunHistoryPanel(host, options) {
       list.forEach((c) => {
         const li = document.createElement("li");
         li.className = "run-history-entry";
+        if (typeof onRunClick === "function") {
+          li.classList.add("run-history-entry-tappable");
+          li.setAttribute("role", "button");
+          li.setAttribute("tabindex", "0");
+          li.addEventListener("click", () => onRunClick(c));
+          li.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onRunClick(c);
+            }
+          });
+        }
         const dateStr = formatDate(c.completedAt);
         const durationStr = formatDuration(c.durationMinutes);
         const meta = [dateStr, `${c.visitedCount}/${c.totalCount}`];

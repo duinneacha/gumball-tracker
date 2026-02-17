@@ -21,7 +21,7 @@ import {
   deleteRunAndLinks,
 } from "../domain/runModel.js";
 import { createRunSession, markVisited, markUnvisited, makeVisitId, getVisitId, sessionFromStorage } from "../domain/runSession.js";
-import { createVisit, saveVisit, deleteVisit } from "../domain/visitModel.js";
+import { createVisit, saveVisit, deleteVisit, getVisitsForRun } from "../domain/visitModel.js";
 import { addRunCompletion, getLastRunCompletion, getAllCompletions } from "../domain/runCompletion.js";
 import { saveActiveSession, loadActiveSession, clearActiveSession } from "../domain/activeSession.js";
 import { getNearestByCardinal } from "../utils/geo.js";
@@ -29,6 +29,7 @@ import { createDisruptionPanel } from "../ui/disruptionPanel.js";
 import { createRunManagementPanel } from "../ui/runManagement.js";
 import { createResumePrompt } from "../ui/resumePrompt.js";
 import { createRunHistoryPanel } from "../ui/runHistory.js";
+import { createRunDetailPanel } from "../ui/runDetail.js";
 
 const LAST_RUN_KEY = "gumball-lastRunId";
 
@@ -79,6 +80,7 @@ export function createApp(rootElement) {
   const runManagementRunsRef = { current: [] };
   let runManagementPanelInstance = null;
   let runHistoryPanelInstance = null;
+  let runDetailPanelInstance = null;
 
   const maintenanceFilterOptionsRef = {
     current: {
@@ -291,6 +293,12 @@ export function createApp(rootElement) {
       if (mode === MODES.DASHBOARD && typeof refreshDashboardDataRef.current === "function") {
         await refreshDashboardDataRef.current();
       }
+      if (mode === MODES.MAINTENANCE || mode === MODES.OPERATION) {
+        await new Promise((r) => requestAnimationFrame(r));
+        mapController.invalidateSize();
+        await new Promise((r) => requestAnimationFrame(r));
+        mapController.invalidateSize();
+      }
       if (mode === "maintenance" && typeof refreshMaintenanceMapRef.current === "function") {
         await refreshMaintenanceMapRef.current();
       }
@@ -301,11 +309,7 @@ export function createApp(rootElement) {
       shell.updateHeaderOperation();
       shell.refreshSidePanel();
       if (mode === MODES.MAINTENANCE || mode === MODES.OPERATION) {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            mapController.invalidateSize();
-          });
-        });
+        requestAnimationFrame(() => mapController.invalidateSize());
       }
     },
     onRunChange: (runId) => {
@@ -771,6 +775,7 @@ export function createApp(rootElement) {
     runHistoryPanelInstance = createRunHistoryPanel(host, {
       completions,
       onClose: closeRunHistory,
+      onRunClick: openRunDetail,
     });
   }
 
@@ -782,6 +787,36 @@ export function createApp(rootElement) {
     if (runHistoryPanelInstance) {
       runHistoryPanelInstance.destroy();
       runHistoryPanelInstance = null;
+    }
+    host.setAttribute("aria-hidden", "true");
+  }
+
+  async function openRunDetail(completion) {
+    if (!completion?.runId) return;
+    const [locations, visits] = await Promise.all([
+      getLocationsForRun(completion.runId),
+      getVisitsForRun(completion.runId),
+    ]);
+    const visitedLocationIds = new Set((visits || []).map((v) => v.locationId));
+    const host = shell.getRunDetailHost();
+    host._onBackdropClick = (e) => { if (e.target === host) closeRunDetail(); };
+    host.addEventListener("click", host._onBackdropClick);
+    runDetailPanelInstance = createRunDetailPanel(host, {
+      completion,
+      locations: locations || [],
+      visitedLocationIds,
+      onClose: closeRunDetail,
+    });
+  }
+
+  function closeRunDetail() {
+    const host = shell.getRunDetailHost();
+    if (host._onBackdropClick) {
+      host.removeEventListener("click", host._onBackdropClick);
+    }
+    if (runDetailPanelInstance) {
+      runDetailPanelInstance.destroy();
+      runDetailPanelInstance = null;
     }
     host.setAttribute("aria-hidden", "true");
   }

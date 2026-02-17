@@ -24,11 +24,11 @@ function openDatabase() {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
+      const tx = event.target.transaction;
       const oldVersion = event.oldVersion;
 
       // Migration: runCompletions "last" -> multi-record (PRD V2.7)
       if (oldVersion > 0 && oldVersion < 5 && db.objectStoreNames.contains("runCompletions")) {
-        const tx = db.transaction("runCompletions", "readwrite");
         const store = tx.objectStore("runCompletions");
         const req = store.get("last");
         req.onsuccess = () => {

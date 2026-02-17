@@ -1,6 +1,6 @@
 # Gumball Tracker — System Summary
 
-**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion (V2.1), assignment (V2.2), management (V2.3), resume last run (V2.4), manual visit correction (V2.5), persist active run session (V2.6), and run history view (V2.7).
+**Purpose:** A single-page web app for Arundel to manage service locations (e.g. from Garmin waypoints), organise them into runs, and track which stops have been visited during a servicing session. Built for field/van use; mobile-first with tablet support. Supports run completion (V2.1), assignment (V2.2), management (V2.3), resume last run (V2.4), manual visit correction (V2.5), persist active run session (V2.6), run history view (V2.7), and run detail view (V2.8).
 
 **Audience:** For AI (e.g. DeepSeek) or new developers needing a full picture of the codebase, data model, modes, and implemented features.
 
@@ -79,7 +79,7 @@ Three modes, selected by header tabs (and in Maintenance, a floating ⚙️ butt
 
 1. **Maintenance** — Manage locations: filter (Active/Archived/Deleted, unassigned only, search), open marker → bottom sheet (Edit / Archive / Delete), import seed or backup JSON, export backup JSON. Map shows circle markers; filters apply (status → unassigned → search).
 2. **Operation** — Run-based fieldwork: select run from header dropdown, map shows only that run’s (active) locations. Tap marker → sheet with “Mark Visited”. Visited markers styled grey; progress “Run: {name} | {visited} / {total} visited” in side panel. Last selected run id in `localStorage` (`gumball-lastRunId`); placeholder “Resume last run” when set.
-3. **Dashboard** — Cards for total locations, runs, last visit, last run; "Resume Last Run" card; "View Run History" button opens history panel (PRD V2.7).
+3. **Dashboard** — Cards for total locations, runs, last visit, last run; "Resume Last Run" card; "View Run History" button opens history panel (PRD V2.7). Tapping a run in history opens run detail panel (PRD V2.8) with mini map and missed locations.
 
 Mode is stored in app state; switching modes updates map and side panel (and in Operation, run selector). Map instance is never re-created; only the feature group is cleared/refilled.
 
@@ -163,6 +163,11 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
   - addRunCompletion, getAllCompletions, getLastRunCompletion; duration computed at finish and stored.
   - "View Run History" button on Dashboard opens overlay panel; list sorted newest first; run name, date, visited/total, duration.
 
+- **V2.8 — Run Detail view**
+  - Tapping a run in history opens run detail overlay panel.
+  - Panel shows run name, date, duration, visited/total; mini Leaflet map with green (visited) and red (missed) circle markers; list of missed locations.
+  - getVisitsForRun(runId) for visited set; map.fitBounds; map.remove() on close.
+
 ---
 
 ## 9. Conventions & Constraints
@@ -184,15 +189,16 @@ Refs (`maintenanceFilterOptionsRef`, `operationOptionsRef`) are passed in so the
 | `app/app.js` | State, refs, shell, mapController, bottomSheet, refreshMaintenanceMap, refreshOperationMap, onRunSelect, onMarkVisited, init chain |
 | `map/initMap.js` | L.map, tiles, L.Icon.Default |
 | `map/mapController.js` | renderLocations (Maintenance + Operation), setSelectedLocationId, setMode, setRun |
-| `ui/layout.js` | Shell, header (run selector when Operation), filter bar + Runs button + import/export when Maintenance, side panel, run management host, run history host, updateHeaderOperation |
+| `ui/layout.js` | Shell, header (run selector when Operation), filter bar + Runs button + import/export when Maintenance, side panel, run management host, run history host, run detail host, updateHeaderOperation |
 | `ui/runManagement.js` | Run Management panel (PRD V2.3): list, create, edit, delete runs |
 | `ui/runHistory.js` | Run History panel (PRD V2.7): list of completed runs, newest first |
+| `ui/runDetail.js` | Run Detail panel (PRD V2.8): summary of past run with mini map, visited/missed markers |
 | `ui/bottomSheet.js` | open(location, { context }), view/edit, Maintenance vs Operation actions |
 | `ui/snackbar.js` | showSnackbar(host, text, { undoLabel, duration, onUndo }) |
 | `domain/locationModel.js` | createLocation, softDelete, restore, archive, restoreFromArchive, saveLocation, getAllLocations |
 | `domain/runModel.js` | createRun, saveRun, getAllRuns, getLocationsForRun, addLocationToRun, removeLocationFromRun, getRunsForLocation, createRunFromName, updateRun, deleteRunAndLinks, getAllRunsWithLocationCount |
 | `domain/runSession.js` | createRunSession, markVisited, markUnvisited, isVisited (in-memory) |
-| `domain/visitModel.js` | createVisit, saveVisit, getAllVisits |
+| `domain/visitModel.js` | createVisit, saveVisit, getAllVisits, getVisitsForRun |
 | `domain/runCompletion.js` | addRunCompletion, getAllCompletions, getLastRunCompletion |
 | `domain/activeSession.js` | saveActiveSession, loadActiveSession, clearActiveSession |
 | `ui/resumePrompt.js` | createResumePrompt (PRD V2.6) |

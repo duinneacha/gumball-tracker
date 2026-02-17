@@ -362,11 +362,16 @@ export function createShellLayout(root, options) {
   runHistoryHost.className = "run-history-host";
   runHistoryHost.setAttribute("aria-hidden", "true");
 
+  const runDetailHost = document.createElement("div");
+  runDetailHost.className = "run-detail-host";
+  runDetailHost.setAttribute("aria-hidden", "true");
+
   app.appendChild(header);
   app.appendChild(main);
   app.appendChild(runManagementHost);
   app.appendChild(resumePromptHost);
   app.appendChild(runHistoryHost);
+  app.appendChild(runDetailHost);
   app.appendChild(snackbarHost);
   app.appendChild(disruptionPanelHost);
   app.appendChild(sheetHost);
@@ -450,6 +455,9 @@ export function createShellLayout(root, options) {
     },
     getRunHistoryHost() {
       return runHistoryHost;
+    },
+    getRunDetailHost() {
+      return runDetailHost;
     },
     getDisruptionPanelHost() {
       return disruptionPanelHost;
