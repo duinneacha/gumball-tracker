@@ -38,6 +38,9 @@ import { createRunManagementPanel } from "../ui/runManagement.js";
 import { createResumePrompt } from "../ui/resumePrompt.js";
 import { createRunHistoryPanel } from "../ui/runHistory.js";
 import { createRunDetailPanel } from "../ui/runDetail.js";
+import { getAutoCheckInSettings, saveAutoCheckInSettings } from "../domain/settingsStore.js";
+import { createSettingsPanel } from "../ui/settingsPanel.js";
+import { createAutoCheckInController } from "../domain/autoCheckIn.js";
 
 const LAST_RUN_KEY = "gumball-lastRunId";
 
@@ -83,12 +86,17 @@ export function createApp(rootElement) {
   };
 
   const onImportSuccessRef = { current: null };
+  const onOpenSettingsRef = { current: null };
   const refreshMaintenanceMapRef = { current: null };
   const refreshDashboardDataRef = { current: null };
   const runManagementRunsRef = { current: [] };
   let runManagementPanelInstance = null;
   let runHistoryPanelInstance = null;
   let runDetailPanelInstance = null;
+  let settingsPanelInstance = null;
+
+  const autoCheckInSettingsRef = { current: { enabled: false, proximityMeters: 50, dwellSeconds: 30 } };
+  const autoCheckInRef = { current: null };
 
   const maintenanceFilterOptionsRef = {
     current: {
@@ -297,7 +305,10 @@ export function createApp(rootElement) {
           disruptionPanelInstance = null;
         }
       }
-      if (mode !== MODES.OPERATION) stopWatchingGPS();
+      if (mode !== MODES.OPERATION) {
+        stopWatchingGPS();
+        autoCheckInRef.current?.cancelAll();
+      }
       if (mode === MODES.DASHBOARD && typeof refreshDashboardDataRef.current === "function") {
         await refreshDashboardDataRef.current();
       }
@@ -331,13 +342,43 @@ export function createApp(rootElement) {
     onFabClickRef,
     disruptionRef,
     onMapVisible: () => mapController.invalidateSize(),
+    onOpenSettingsRef,
+  });
+
+  autoCheckInRef.current = createAutoCheckInController({
+    getSettings: () => Promise.resolve(autoCheckInSettingsRef.current),
+    getLocations: () => getLocationsForRun(state.selectedRunId),
+    getVisitedIds: () => state.runSession?.visitedLocationIds ?? new Set(),
+    onAutoVisit: async (locationId, locationName) => {
+      if (!state.runSession || !state.selectedRunId) return;
+      const visitId = makeVisitId(state.runSession, locationId);
+      const visit = createVisit({
+        id: visitId,
+        locationId,
+        runId: state.runSession.runId,
+        visitedAt: Date.now(),
+        visitMethod: "auto",
+      });
+      await saveVisit(visit);
+      markVisited(state.runSession, locationId, visitId);
+      await saveActiveSession(state.runSession);
+      if (typeof refreshOperationMapRef.current === "function") {
+        refreshOperationMapRef.current();
+      }
+      showSnackbar(snackbarHost, `Auto-checked: ${locationName}`, { duration: 3000 });
+    },
   });
 
   // Initialize storage, then run first-run seed if locations store is empty; load runs for Operation mode.
   initStorage()
     .then(() => import("../storage/seed.js").then((m) => m.runFirstRunSeedIfEmpty()))
+    .then(async (seedResult) => {
+      const s = await getAutoCheckInSettings();
+      autoCheckInSettingsRef.current = s;
+      return seedResult;
+    })
     .then(async (result) => {
-      if (result.imported > 0) {
+      if (result?.imported > 0) {
         // eslint-disable-next-line no-console
         console.log(`First-run seed: imported ${result.imported} locations.`);
         if (typeof refreshMaintenanceMapRef.current === "function") {
@@ -367,6 +408,39 @@ export function createApp(rootElement) {
 
   // Bottom sheet: opens on marker click in Maintenance Mode; editable with Save/Delete.
   const snackbarHost = shell.getSnackbarHost();
+
+  function closeSettings() {
+    if (settingsPanelInstance) {
+      settingsPanelInstance.destroy();
+      settingsPanelInstance = null;
+    }
+    const host = shell.getSettingsHost();
+    if (host._onBackdropClick) {
+      host.removeEventListener("click", host._onBackdropClick);
+      host._onBackdropClick = null;
+    }
+    host.setAttribute("aria-hidden", "true");
+    host.innerHTML = "";
+  }
+
+  function openSettings() {
+    const host = shell.getSettingsHost();
+    host.setAttribute("aria-hidden", "false");
+    host._onBackdropClick = (e) => {
+      if (e.target === host.querySelector(".settings-panel-overlay")) closeSettings();
+    };
+    host.addEventListener("click", host._onBackdropClick);
+    settingsPanelInstance = createSettingsPanel(host, {
+      initialSettings: autoCheckInSettingsRef.current,
+      onSave: async (s) => {
+        await saveAutoCheckInSettings(s);
+        autoCheckInSettingsRef.current = { ...s };
+      },
+      onClose: closeSettings,
+    });
+  }
+  onOpenSettingsRef.current = openSettings;
+
   const bottomSheet = createBottomSheet({
     sheetHost: shell.getSheetHost(),
     sidePanel: shell.getSidePanel(),
@@ -438,6 +512,7 @@ export function createApp(rootElement) {
     },
     onMarkVisited: async (location) => {
       if (state.runSession && location?.id) {
+        autoCheckInRef.current?.cancelForLocation(location.id);
         const visitId = makeVisitId(state.runSession, location.id);
         const visit = createVisit({
           id: visitId,
@@ -584,6 +659,9 @@ export function createApp(rootElement) {
         state.gpsAvailable = true;
         mapController.updateGpsMarker(position);
         shell.setGpsActive?.(true);
+        if (state.runSession && state.selectedRunId && autoCheckInSettingsRef.current?.enabled) {
+          autoCheckInRef.current?.update(position);
+        }
       },
       (error) => {
         if (error.code === 1) {
@@ -629,6 +707,7 @@ export function createApp(rootElement) {
         disruptionPanelInstance = null;
       }
     }
+    autoCheckInRef.current?.cancelAll();
 
     const locations = await getLocationsForRun(runId);
     const totalCount = locations.length;

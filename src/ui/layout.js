@@ -250,9 +250,25 @@ export function createShellLayout(root, options) {
     <button data-mode="maintenance" class="mode-btn">Maintenance</button>
     <button data-mode="operation" class="mode-btn">Operation</button>
   `;
+  const headerRight = document.createElement("div");
+  headerRight.className = "header-right";
+  const settingsBtn = document.createElement("button");
+  settingsBtn.type = "button";
+  settingsBtn.className = "header-settings-btn";
+  settingsBtn.setAttribute("aria-label", "Open settings");
+  settingsBtn.textContent = "\u2699\uFE0F";
+  headerRight.appendChild(settingsBtn);
   header.appendChild(titleDiv);
   header.appendChild(headerOperation);
+  header.appendChild(headerRight);
   header.appendChild(nav);
+
+  const onOpenSettingsRef = options.onOpenSettingsRef;
+  if (onOpenSettingsRef) {
+    settingsBtn.addEventListener("click", () => {
+      if (typeof onOpenSettingsRef.current === "function") onOpenSettingsRef.current();
+    });
+  }
 
   function updateHeaderOperation() {
     headerOperation.innerHTML = "";
@@ -366,12 +382,17 @@ export function createShellLayout(root, options) {
   runDetailHost.className = "run-detail-host";
   runDetailHost.setAttribute("aria-hidden", "true");
 
+  const settingsHost = document.createElement("div");
+  settingsHost.className = "settings-host";
+  settingsHost.setAttribute("aria-hidden", "true");
+
   app.appendChild(header);
   app.appendChild(main);
   app.appendChild(runManagementHost);
   app.appendChild(resumePromptHost);
   app.appendChild(runHistoryHost);
   app.appendChild(runDetailHost);
+  app.appendChild(settingsHost);
   app.appendChild(snackbarHost);
   app.appendChild(disruptionPanelHost);
   app.appendChild(sheetHost);
@@ -458,6 +479,9 @@ export function createShellLayout(root, options) {
     },
     getRunDetailHost() {
       return runDetailHost;
+    },
+    getSettingsHost() {
+      return settingsHost;
     },
     getDisruptionPanelHost() {
       return disruptionPanelHost;
