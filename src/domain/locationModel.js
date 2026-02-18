@@ -56,3 +56,12 @@ export async function getAllLocations() {
   return getAllFromStore("locations");
 }
 
+/**
+ * Get all locations with status "active" (PRD V2.9 – due-for-service stats).
+ * @returns {Promise<Array<object>>}
+ */
+export async function getAllActiveLocations() {
+  const all = await getAllFromStore("locations");
+  return (all || []).filter((l) => l.status === "active");
+}
+

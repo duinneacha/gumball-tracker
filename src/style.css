@@ -252,6 +252,76 @@ body {
   margin-top: 0.5rem;
 }
 
+/* Dashboard Statistics (PRD V2.9) */
+.dashboard-statistics-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0.5rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.dashboard-chart-wrap {
+  margin-top: 0.25rem;
+}
+
+.visits-chart {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.visits-chart-heading {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 0 0.5rem;
+}
+
+.visits-chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.stat-row .day-label {
+  flex: 0 0 2.25rem;
+  color: #374151;
+}
+
+.stat-row .bar-container {
+  flex: 1;
+  min-width: 0;
+  height: 1.25rem;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stat-row .bar {
+  height: 100%;
+  min-width: 2px;
+  background-color: #f97316;
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+.stat-row .count {
+  flex: 0 0 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  text-align: right;
+}
+
 /* Run History panel (PRD V2.7) */
 .run-history-host {
   position: fixed;

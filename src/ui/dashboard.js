@@ -1,13 +1,16 @@
 /**
  * Dashboard (V1): default landing mode. Cards for active locations, runs, last visit,
  * last run (PRD V2.1), resume last run (PRD V2.4); quick links to Maintenance and Operation.
+ * V2.9: Statistics section (visits today/week/month, most/least visited, due for service, 7-day chart).
  * Map is hidden when Dashboard is active.
  */
+
+import { renderVisitsChart } from "./visitsChart.js";
 
 /**
  * Render dashboard content into the given container.
  * @param {HTMLElement} container
- * @param {{ activeCount: number, runsCount: number, lastVisitText: string, lastRun?: object | null, onGoToMaintenance: () => void, onGoToOperation: () => void, onResumeLastRun?: () => void, onOpenRunManagement?: () => void, onOpenRunHistory?: () => void }} options
+ * @param {{ activeCount: number, runsCount: number, lastVisitText: string, lastRun?: object | null, stats?: object, onGoToMaintenance: () => void, onGoToOperation: () => void, onResumeLastRun?: () => void, onOpenRunManagement?: () => void, onOpenRunHistory?: () => void }} options
  */
 export function renderDashboard(container, options) {
   const {
@@ -16,6 +19,7 @@ export function renderDashboard(container, options) {
     lastVisitText = "No visits yet",
     lastRun = null,
     lastRunResumable = false,
+    stats = null,
     onGoToMaintenance,
     onGoToOperation,
     onResumeLastRun,
@@ -88,6 +92,61 @@ export function renderDashboard(container, options) {
   historyBtn.addEventListener("click", () => typeof onOpenRunHistory === "function" && onOpenRunHistory());
   historyBtnWrap.appendChild(historyBtn);
 
+  container.appendChild(card1);
+  container.appendChild(card2);
+  container.appendChild(card3);
+  container.appendChild(card4);
+  container.appendChild(card5);
+  container.appendChild(historyBtnWrap);
+
+  if (stats) {
+    const sectionHeading = document.createElement("h2");
+    sectionHeading.className = "dashboard-statistics-heading";
+    sectionHeading.textContent = "Statistics";
+    container.appendChild(sectionHeading);
+
+    const cardToday = document.createElement("div");
+    cardToday.className = "dashboard-card";
+    cardToday.innerHTML = `<span class="dashboard-card-label">Visits Today</span><span class="dashboard-card-value">${stats.visitsToday ?? 0}</span>`;
+    container.appendChild(cardToday);
+
+    const cardWeek = document.createElement("div");
+    cardWeek.className = "dashboard-card";
+    cardWeek.innerHTML = `<span class="dashboard-card-label">Visits This Week</span><span class="dashboard-card-value">${stats.visitsThisWeek ?? 0}</span>`;
+    container.appendChild(cardWeek);
+
+    const cardMonth = document.createElement("div");
+    cardMonth.className = "dashboard-card";
+    cardMonth.innerHTML = `<span class="dashboard-card-label">Visits This Month</span><span class="dashboard-card-value">${stats.visitsThisMonth ?? 0}</span>`;
+    container.appendChild(cardMonth);
+
+    const mostVisitedText = stats.mostVisited
+      ? `${escapeHtml(stats.mostVisited.name)} (${stats.mostVisited.count}×)`
+      : "—";
+    const cardMost = document.createElement("div");
+    cardMost.className = "dashboard-card";
+    cardMost.innerHTML = `<span class="dashboard-card-label">Most Visited</span><span class="dashboard-card-value dashboard-card-value--muted">${mostVisitedText}</span>`;
+    container.appendChild(cardMost);
+
+    const leastVisitedText = stats.leastVisited
+      ? `${escapeHtml(stats.leastVisited.name)} (${stats.leastVisited.count}×)`
+      : "—";
+    const cardLeast = document.createElement("div");
+    cardLeast.className = "dashboard-card";
+    cardLeast.innerHTML = `<span class="dashboard-card-label">Least Visited</span><span class="dashboard-card-value dashboard-card-value--muted">${leastVisitedText}</span>`;
+    container.appendChild(cardLeast);
+
+    const cardDue = document.createElement("div");
+    cardDue.className = "dashboard-card";
+    cardDue.innerHTML = `<span class="dashboard-card-label">Due for Service</span><span class="dashboard-card-value">${stats.dueForServiceCount ?? 0} locations</span>`;
+    container.appendChild(cardDue);
+
+    const chartContainer = document.createElement("div");
+    chartContainer.className = "dashboard-chart-wrap";
+    renderVisitsChart(chartContainer, stats.visitsPerDayLast7 ?? []);
+    container.appendChild(chartContainer);
+  }
+
   const actions = document.createElement("div");
   actions.className = "dashboard-actions";
   const btnMaint = document.createElement("button");
@@ -103,12 +162,6 @@ export function renderDashboard(container, options) {
   actions.appendChild(btnMaint);
   actions.appendChild(btnOp);
 
-  container.appendChild(card1);
-  container.appendChild(card2);
-  container.appendChild(card3);
-  container.appendChild(card4);
-  container.appendChild(card5);
-  container.appendChild(historyBtnWrap);
   container.appendChild(actions);
 }
 

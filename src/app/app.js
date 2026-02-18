@@ -21,7 +21,15 @@ import {
   deleteRunAndLinks,
 } from "../domain/runModel.js";
 import { createRunSession, markVisited, markUnvisited, makeVisitId, getVisitId, sessionFromStorage } from "../domain/runSession.js";
-import { createVisit, saveVisit, deleteVisit, getVisitsForRun } from "../domain/visitModel.js";
+import {
+  createVisit,
+  saveVisit,
+  deleteVisit,
+  getVisitsForRun,
+  getVisitsCountInDateRange,
+  getVisitsPerLocation,
+} from "../domain/visitModel.js";
+import { getAllActiveLocations } from "../domain/locationModel.js";
 import { addRunCompletion, getLastRunCompletion, getAllCompletions } from "../domain/runCompletion.js";
 import { saveActiveSession, loadActiveSession, clearActiveSession } from "../domain/activeSession.js";
 import { getNearestByCardinal } from "../utils/geo.js";
@@ -729,12 +737,56 @@ export function createApp(rootElement) {
     operationOptionsRef.current.totalCount = locations.length;
   }
 
+  function getStartOfToday() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function getEndOfToday() {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }
+
+  function getStartOfCalendarMonth() {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function getStartOfDayDaysAgo(daysAgo) {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function getEndOfDayDaysAgo(daysAgo) {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }
+
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
   async function refreshDashboardData() {
-    const [locations, runs, visits, lastRunRaw] = await Promise.all([
+    const [
+      locations,
+      runs,
+      visits,
+      lastRunRaw,
+      visitsPerLoc,
+      activeLocations,
+    ] = await Promise.all([
       getAllFromStore("locations"),
       getAllFromStore("runs"),
       getAllFromStore("visits"),
       getLastRunCompletion(),
+      getVisitsPerLocation(),
+      getAllActiveLocations(),
     ]);
     const activeCount = (locations || []).filter((l) => l.status === "active").length;
     const runsCount = (runs || []).length;
@@ -752,6 +804,71 @@ export function createApp(rootElement) {
       if (!runExists) lastRun = null;
       else lastRunResumable = true;
     }
+
+    const now = Date.now();
+    const startToday = getStartOfToday();
+    const endToday = getEndOfToday();
+    const startWeek = getStartOfDayDaysAgo(6);
+    const startMonth = getStartOfCalendarMonth();
+
+    const [visitsToday, visitsThisWeek, visitsThisMonth] = await Promise.all([
+      getVisitsCountInDateRange(startToday, endToday),
+      getVisitsCountInDateRange(startWeek, endToday),
+      getVisitsCountInDateRange(startMonth, endToday),
+    ]);
+
+    let mostVisited = null;
+    let leastVisited = null;
+    if (visitsPerLoc.length > 0) {
+      const most = visitsPerLoc[0];
+      const mostLoc = await getEntity("locations", most.locationId);
+      mostVisited = { name: mostLoc?.name ?? most.locationId, count: most.count };
+      const withVisits = visitsPerLoc.filter((p) => p.count > 0);
+      const leastEntry = withVisits.length > 0 ? withVisits[withVisits.length - 1] : null;
+      if (leastEntry) {
+        const leastLoc = await getEntity("locations", leastEntry.locationId);
+        leastVisited = { name: leastLoc?.name ?? leastEntry.locationId, count: leastEntry.count };
+      }
+    }
+
+    const DUE_DAYS = 30;
+    const dueThreshold = DUE_DAYS * 24 * 60 * 60 * 1000;
+    const lastVisitByLocation = new Map();
+    for (const v of visits || []) {
+      const id = v.locationId;
+      const at = v.visitedAt != null ? Number(v.visitedAt) : 0;
+      const existing = lastVisitByLocation.get(id);
+      if (existing == null || at > existing) lastVisitByLocation.set(id, at);
+    }
+    let dueForServiceCount = 0;
+    for (const loc of activeLocations) {
+      const lastAt = lastVisitByLocation.get(loc.id);
+      if (lastAt == null || now - lastAt > dueThreshold) dueForServiceCount += 1;
+    }
+
+    const visitsPerDayLast7 = [];
+    const dayBuckets = new Map();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      const startOfDay = d.getTime();
+      dayBuckets.set(startOfDay, { dayLabel: DAY_LABELS[d.getDay()], count: 0 });
+    }
+    const dayStarts = Array.from(dayBuckets.keys()).sort((a, b) => a - b);
+    for (const v of visits || []) {
+      const t = v.visitedAt != null ? Number(v.visitedAt) : 0;
+      const visitDate = new Date(t);
+      visitDate.setHours(0, 0, 0, 0);
+      const startOfDay = visitDate.getTime();
+      if (dayBuckets.has(startOfDay)) {
+        dayBuckets.get(startOfDay).count += 1;
+      }
+    }
+    for (const start of dayStarts) {
+      visitsPerDayLast7.push(dayBuckets.get(start));
+    }
+
     dashboardDataRef.current = {
       ...dashboardDataRef.current,
       activeCount,
@@ -759,6 +876,15 @@ export function createApp(rootElement) {
       lastVisitText,
       lastRun,
       lastRunResumable,
+      stats: {
+        visitsToday,
+        visitsThisWeek,
+        visitsThisMonth,
+        mostVisited,
+        leastVisited,
+        dueForServiceCount,
+        visitsPerDayLast7,
+      },
       onGoToMaintenance: () => shell.setMode("maintenance"),
       onGoToOperation: () => shell.setMode("operation"),
       onResumeLastRun: resumeLastRun,
@@ -881,7 +1007,11 @@ export function createApp(rootElement) {
   refreshMaintenanceMapRef.current = refreshMaintenanceMap;
   refreshOperationMapRef.current = refreshOperationMap;
   refreshDashboardDataRef.current = refreshDashboardData;
-  onImportSuccessRef.current = refreshMaintenanceMap;
+  onImportSuccessRef.current = async () => {
+    await refreshMaintenanceMap();
+    await refreshDashboardData();
+    if (state.mode === MODES.DASHBOARD) shell.refreshSidePanel();
+  };
   operationOptionsRef.current.onFinishRun = finishRun;
 
   refreshDashboardData().then(() => {
