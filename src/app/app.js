@@ -658,27 +658,7 @@ export function createApp(rootElement) {
             },
           });
         };
-        bottomSheet.open(location, {
-          context: "maintenance",
-          runs: runs || [],
-          selectedRunIds: assignedRunIds,
-          allLocations: maintenanceLocationsRef.current,
-          onNavigateToLocation: openMaintenanceSheet,
-          onRunToggle: async (runId, checked) => {
-            if (checked) {
-              await addLocationToRun(runId, location.id);
-              const run = (runs || []).find((r) => r.id === runId);
-              showSnackbar(snackbarHost, `Added to ${run?.name ?? runId}`);
-            } else {
-              await removeLocationFromRun(runId, location.id);
-              const run = (runs || []).find((r) => r.id === runId);
-              showSnackbar(snackbarHost, `Removed from ${run?.name ?? runId}`);
-            }
-            if (state.maintenanceFilters.unassignedOnly && typeof refreshMaintenanceMapRef.current === "function") {
-              await refreshMaintenanceMapRef.current({ forceFitBounds: false });
-            }
-          },
-        });
+        openMaintenanceSheet(location);
       }
       if (state.mode === MODES.OPERATION && !state.isDisruptionMode) {
         mapController.setSelectedLocationId(location.id);

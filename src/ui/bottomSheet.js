@@ -5,7 +5,6 @@
  * Maintenance: Previous/Next replace Archive for location navigation.
  */
 
-import { haversineKm } from "../utils/geo.js";
 
 const TABLET_BREAKPOINT_PX = 768;
 const SERVICE_FREQUENCIES = ["weekly", "fortnightly", "monthly", "adhoc"];
@@ -272,19 +271,8 @@ export function createBottomSheet(options) {
         const list = openRunsOptions?.allLocations;
         const nav = openRunsOptions?.onNavigateToLocation;
         if (!Array.isArray(list) || list.length === 0 || typeof nav !== "function") return;
-        const cur = currentLocation;
-        if (cur?.latitude == null || cur?.longitude == null) return;
-        let nearest = null;
-        let nearestDist = Infinity;
-        for (const loc of list) {
-          if (loc.id === cur.id) continue;
-          const d = haversineKm(cur.latitude, cur.longitude, loc.latitude, loc.longitude);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearest = loc;
-          }
-        }
-        if (nearest) nav(nearest);
+        const idx = list.findIndex((loc) => loc.id === currentLocation?.id);
+        if (idx >= 0 && idx < list.length - 1) nav(list[idx + 1]);
       },
       onDelete: () => {
         if (typeof onDelete === "function") onDelete(currentLocation);
