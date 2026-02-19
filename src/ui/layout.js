@@ -347,11 +347,18 @@ export function createShellLayout(root, options) {
   root.appendChild(app);
 
   let currentMode = initialMode;
+
+  function isSmallScreen() {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  }
+
   function updateDashboardVisibility() {
     const isDashboard = currentMode === "dashboard";
+    const hideSidePanelForMaintenance = currentMode === "maintenance" && isSmallScreen();
     dashboardWrap.hidden = !isDashboard;
     mapContainer.hidden = isDashboard;
-    sidePanel.hidden = isDashboard;
+    sidePanel.hidden = isDashboard || hideSidePanelForMaintenance;
     if (isDashboard && dashboardDataRef?.current) {
       renderDashboard(dashboardWrap, dashboardDataRef.current);
     }
