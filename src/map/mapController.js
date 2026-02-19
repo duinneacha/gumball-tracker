@@ -84,6 +84,7 @@ export function createMapController(container, initialState) {
 
     const baseRadius = 6;
     const hoverRadius = 7;
+    const selectedRadius = 10;
     const suggestionRadius = 8;
     const selectedWeight = 3;
     const defaultWeight = 2;
@@ -97,15 +98,19 @@ export function createMapController(container, initialState) {
 
     function applyMarkerStyle(l, id, isHovered, isSelected, isVisited, isSuggestion) {
       if (!useCircleMarkers || !l.setStyle) return;
-      const radius = isSuggestion ? suggestionRadius : (isHovered || isSelected ? hoverRadius : baseRadius);
+      const radius = isSuggestion ? suggestionRadius : (isSelected ? selectedRadius : (isHovered ? hoverRadius : baseRadius));
       const weight = isSelected ? selectedWeight : (isSuggestion ? 2 : defaultWeight);
       let fillColor, color, fillOpacity;
       if (isSuggestion) {
         fillColor = suggestionFill;
         color = suggestionStroke;
         fillOpacity = 0.9;
+      } else if (isSelected && !isVisited) {
+        fillColor = "#ffffff";
+        color = "#ef4444";
+        fillOpacity = 1.0;
       } else {
-        fillColor = isVisited ? visitedFill : (isSelected ? "#dc2626" : "#ef4444");
+        fillColor = isVisited ? visitedFill : "#ef4444";
         color = isVisited ? visitedStroke : "#b91c1c";
         fillOpacity = isVisited ? 0.65 : 0.9;
       }
@@ -206,6 +211,7 @@ export function createMapController(container, initialState) {
     selectedLocationId = id ?? null;
     const baseRadius = 6;
     const hoverRadius = 7;
+    const selectedRadius = 10;
     const suggestionRadius = 8;
     const selectedWeight = 3;
     const defaultWeight = 2;
@@ -213,11 +219,23 @@ export function createMapController(container, initialState) {
       if (!l.setStyle) return;
       const isSuggestion = l._isSuggestion === true;
       const isVisited = l._isVisited === true;
-      const radius = selected ? (isSuggestion ? suggestionRadius : hoverRadius) : (isSuggestion ? suggestionRadius : baseRadius);
+      const radius = selected ? (isSuggestion ? suggestionRadius : selectedRadius) : (isSuggestion ? suggestionRadius : baseRadius);
       const weight = selected ? selectedWeight : (isSuggestion ? 2 : defaultWeight);
-      const fillColor = isSuggestion ? "#3b82f6" : (selected ? "#dc2626" : (isVisited ? "#9ca3af" : "#ef4444"));
-      const color = isSuggestion ? "#ffffff" : (isVisited ? "#6b7280" : "#b91c1c");
-      l.setStyle({ radius, weight, fillColor, color, fillOpacity: isVisited && !isSuggestion ? 0.65 : 0.9 });
+      let fillColor, color, fillOpacity;
+      if (isSuggestion) {
+        fillColor = "#3b82f6";
+        color = "#ffffff";
+        fillOpacity = 0.9;
+      } else if (selected && !isVisited) {
+        fillColor = "#ffffff";
+        color = "#ef4444";
+        fillOpacity = 1.0;
+      } else {
+        fillColor = isVisited ? "#9ca3af" : "#ef4444";
+        color = isVisited ? "#6b7280" : "#b91c1c";
+        fillOpacity = isVisited ? 0.65 : 0.9;
+      }
+      l.setStyle({ radius, weight, fillColor, color, fillOpacity });
     };
     if (prev && layerById[prev]) {
       updateStyle(layerById[prev], false);
