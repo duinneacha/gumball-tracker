@@ -28,7 +28,9 @@ export function renderDashboard(container, options) {
   } = options;
 
   container.innerHTML = "";
-  container.className = "dashboard-panel";
+
+  const panel = document.createElement("div");
+  panel.className = "dashboard-panel";
 
   const card1 = document.createElement("div");
   card1.className = "dashboard-card";
@@ -83,33 +85,33 @@ export function renderDashboard(container, options) {
   historyBtn.addEventListener("click", () => typeof onOpenRunHistory === "function" && onOpenRunHistory());
   historyBtnWrap.appendChild(historyBtn);
 
-  container.appendChild(card1);
-  container.appendChild(card2);
-  container.appendChild(card3);
-  container.appendChild(card4);
-  container.appendChild(card5);
-  container.appendChild(historyBtnWrap);
+  panel.appendChild(card1);
+  panel.appendChild(card2);
+  panel.appendChild(card3);
+  panel.appendChild(card4);
+  panel.appendChild(card5);
+  panel.appendChild(historyBtnWrap);
 
   if (stats) {
     const sectionHeading = document.createElement("h2");
     sectionHeading.className = "dashboard-statistics-heading";
     sectionHeading.textContent = "Statistics";
-    container.appendChild(sectionHeading);
+    panel.appendChild(sectionHeading);
 
     const cardToday = document.createElement("div");
     cardToday.className = "dashboard-card";
     cardToday.innerHTML = `<span class="dashboard-card-label">Visits Today</span><span class="dashboard-card-value">${stats.visitsToday ?? 0}</span>`;
-    container.appendChild(cardToday);
+    panel.appendChild(cardToday);
 
     const cardWeek = document.createElement("div");
     cardWeek.className = "dashboard-card";
     cardWeek.innerHTML = `<span class="dashboard-card-label">Visits This Week</span><span class="dashboard-card-value">${stats.visitsThisWeek ?? 0}</span>`;
-    container.appendChild(cardWeek);
+    panel.appendChild(cardWeek);
 
     const cardMonth = document.createElement("div");
     cardMonth.className = "dashboard-card";
     cardMonth.innerHTML = `<span class="dashboard-card-label">Visits This Month</span><span class="dashboard-card-value">${stats.visitsThisMonth ?? 0}</span>`;
-    container.appendChild(cardMonth);
+    panel.appendChild(cardMonth);
 
     const mostVisitedText = stats.mostVisited
       ? `${escapeHtml(stats.mostVisited.name)} (${stats.mostVisited.count}×)`
@@ -117,7 +119,7 @@ export function renderDashboard(container, options) {
     const cardMost = document.createElement("div");
     cardMost.className = "dashboard-card";
     cardMost.innerHTML = `<span class="dashboard-card-label">Most Visited</span><span class="dashboard-card-value dashboard-card-value--muted">${mostVisitedText}</span>`;
-    container.appendChild(cardMost);
+    panel.appendChild(cardMost);
 
     const leastVisitedText = stats.leastVisited
       ? `${escapeHtml(stats.leastVisited.name)} (${stats.leastVisited.count}×)`
@@ -125,17 +127,17 @@ export function renderDashboard(container, options) {
     const cardLeast = document.createElement("div");
     cardLeast.className = "dashboard-card";
     cardLeast.innerHTML = `<span class="dashboard-card-label">Least Visited</span><span class="dashboard-card-value dashboard-card-value--muted">${leastVisitedText}</span>`;
-    container.appendChild(cardLeast);
+    panel.appendChild(cardLeast);
 
     const cardDue = document.createElement("div");
     cardDue.className = "dashboard-card";
     cardDue.innerHTML = `<span class="dashboard-card-label">Due for Service</span><span class="dashboard-card-value">${stats.dueForServiceCount ?? 0} locations</span>`;
-    container.appendChild(cardDue);
+    panel.appendChild(cardDue);
 
     const chartContainer = document.createElement("div");
     chartContainer.className = "dashboard-chart-wrap";
     renderVisitsChart(chartContainer, stats.visitsPerDayLast7 ?? []);
-    container.appendChild(chartContainer);
+    panel.appendChild(chartContainer);
   }
 
   const actions = document.createElement("div");
@@ -153,7 +155,9 @@ export function renderDashboard(container, options) {
   actions.appendChild(btnMaint);
   actions.appendChild(btnOp);
 
-  container.appendChild(actions);
+  panel.appendChild(actions);
+
+  container.appendChild(panel);
 }
 
 function escapeHtml(str) {
