@@ -2,7 +2,10 @@
  * Reusable Bottom Sheet UI component.
  * Mobile: slides up from bottom (50–70% height). Tablet: uses side panel area.
  * Dual-mode: VIEW (read-only + Edit/Delete) and EDIT (editable + Save/Cancel).
+ * Maintenance: Previous/Next replace Archive for location navigation.
  */
+
+import { haversineKm } from "../utils/geo.js";
 
 const TABLET_BREAKPOINT_PX = 768;
 const SERVICE_FREQUENCIES = ["weekly", "fortnightly", "monthly", "adhoc"];
@@ -50,6 +53,7 @@ function renderViewMode(location, callbacks, context = "maintenance", runsOption
     `;
   }
 
+  const hasNav = context === "maintenance" && runsOptions?.allLocations?.length > 0 && typeof runsOptions?.onNavigateToLocation === "function";
   const actionsHtml = isReadOnlyWithMarkVisited
     ? `<div class="bottom-sheet-actions">
          ${isVisited
@@ -59,7 +63,7 @@ function renderViewMode(location, callbacks, context = "maintenance", runsOption
        </div>`
     : `<div class="bottom-sheet-actions">
          <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="edit">Edit</button>
-         <button type="button" class="bottom-sheet-btn bottom-sheet-btn-primary" data-action="archive">Archive</button>
+         ${hasNav ? '<button type="button" class="bottom-sheet-btn bottom-sheet-btn-secondary" data-action="prev">Previous</button><button type="button" class="bottom-sheet-btn bottom-sheet-btn-secondary" data-action="next">Next</button>' : ""}
          <button type="button" class="bottom-sheet-btn bottom-sheet-btn-danger" data-action="delete">Delete</button>
        </div>`;
 
@@ -96,7 +100,8 @@ function renderViewMode(location, callbacks, context = "maintenance", runsOption
     content.querySelector('[data-action="back"]')?.addEventListener("click", () => callbacks.onBack?.());
   } else {
     content.querySelector('[data-action="edit"]')?.addEventListener("click", () => callbacks.onEdit());
-    content.querySelector('[data-action="archive"]')?.addEventListener("click", () => callbacks.onArchive());
+    content.querySelector('[data-action="prev"]')?.addEventListener("click", () => callbacks.onPrevious?.());
+    content.querySelector('[data-action="next"]')?.addEventListener("click", () => callbacks.onNext?.());
     content.querySelector('[data-action="delete"]')?.addEventListener("click", () => callbacks.onDelete());
   }
   return content;
@@ -219,6 +224,9 @@ export function createBottomSheet(options) {
         },
         { once: true }
       );
+      if (typeof onClose === "function") {
+        onClose();
+      }
     }
   }
 
@@ -253,9 +261,30 @@ export function createBottomSheet(options) {
         mode = "view";
         renderContentArea();
       },
-      onArchive: () => {
-        if (typeof onArchive === "function") onArchive(currentLocation);
-        doClose();
+      onPrevious: () => {
+        const list = openRunsOptions?.allLocations;
+        const nav = openRunsOptions?.onNavigateToLocation;
+        if (!Array.isArray(list) || list.length === 0 || typeof nav !== "function") return;
+        const idx = list.findIndex((loc) => loc.id === currentLocation?.id);
+        if (idx > 0) nav(list[idx - 1]);
+      },
+      onNext: () => {
+        const list = openRunsOptions?.allLocations;
+        const nav = openRunsOptions?.onNavigateToLocation;
+        if (!Array.isArray(list) || list.length === 0 || typeof nav !== "function") return;
+        const cur = currentLocation;
+        if (cur?.latitude == null || cur?.longitude == null) return;
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const loc of list) {
+          if (loc.id === cur.id) continue;
+          const d = haversineKm(cur.latitude, cur.longitude, loc.latitude, loc.longitude);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = loc;
+          }
+        }
+        if (nearest) nav(nearest);
       },
       onDelete: () => {
         if (typeof onDelete === "function") onDelete(currentLocation);
@@ -289,10 +318,12 @@ export function createBottomSheet(options) {
     mode = "view";
     openContext = openOptions.context === "operation" ? "operation" : (openOptions.context === "disruption" ? "disruption" : "maintenance");
     openOperationOptions = (openContext === "operation" || openContext === "disruption") ? { isVisited: openOptions.isVisited } : null;
-    openRunsOptions = (openContext === "maintenance" && openOptions.runs) ? {
-      runs: openOptions.runs,
+    openRunsOptions = openContext === "maintenance" ? {
+      runs: openOptions.runs || [],
       selectedRunIds: openOptions.selectedRunIds instanceof Set ? openOptions.selectedRunIds : new Set(openOptions.selectedRunIds || []),
       onRunToggle: openOptions.onRunToggle,
+      allLocations: Array.isArray(openOptions.allLocations) ? openOptions.allLocations : [],
+      onNavigateToLocation: typeof openOptions.onNavigateToLocation === "function" ? openOptions.onNavigateToLocation : undefined,
     } : null;
     usedTablet = isTablet();
 

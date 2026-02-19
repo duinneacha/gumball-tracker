@@ -1,5 +1,5 @@
 /**
- * Settings panel (PRD V2.10): Auto Check-In enable, proximity, dwell time.
+ * Settings panel (PRD V2.10): Auto Check-In; V2.11: Data Management (import/export).
  */
 
 /**
@@ -7,12 +7,14 @@
  * @param {{
  *   initialSettings: { enabled: boolean, proximityMeters: number, dwellSeconds: number },
  *   onSave: (settings: object) => Promise<void>,
- *   onClose: () => void
+ *   onClose: () => void,
+ *   onExportBackup?: () => Promise<void>,
+ *   onImportBackup?: (file: File) => Promise<void>,
  * }} options
  * @returns {{ destroy: () => void, setSettings: (s: object) => void }}
  */
 export function createSettingsPanel(host, options) {
-  const { initialSettings, onSave, onClose } = options;
+  const { initialSettings, onSave, onClose, onExportBackup, onImportBackup } = options;
   let currentSettings = {
     enabled: Boolean(initialSettings?.enabled),
     proximityMeters: clamp(Number(initialSettings?.proximityMeters) || 50, 20, 200),
@@ -147,6 +149,55 @@ export function createSettingsPanel(host, options) {
   panel.appendChild(header);
   panel.appendChild(section);
   panel.appendChild(saveBtn);
+
+  const dataSection = document.createElement("div");
+  dataSection.className = "settings-section";
+  dataSection.innerHTML = "<h3 class=\"settings-section-title\">Data Management</h3>";
+  const dataBtns = document.createElement("div");
+  dataBtns.className = "settings-data-btns";
+  if (typeof onImportBackup === "function") {
+    const importInput = document.createElement("input");
+    importInput.type = "file";
+    importInput.accept = ".json,application/json";
+    importInput.className = "settings-import-input";
+    importInput.setAttribute("aria-label", "Import backup file");
+    const importBtn = document.createElement("button");
+    importBtn.type = "button";
+    importBtn.className = "settings-data-btn";
+    importBtn.textContent = "Import Backup";
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        await onImportBackup(file);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("Import failed", err);
+      }
+      importInput.value = "";
+    });
+    dataBtns.appendChild(importInput);
+    dataBtns.appendChild(importBtn);
+  }
+  if (typeof onExportBackup === "function") {
+    const exportBtn = document.createElement("button");
+    exportBtn.type = "button";
+    exportBtn.className = "settings-data-btn";
+    exportBtn.textContent = "Export Backup";
+    exportBtn.addEventListener("click", async () => {
+      try {
+        await onExportBackup();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("Export failed", err);
+      }
+    });
+    dataBtns.appendChild(exportBtn);
+  }
+  dataSection.appendChild(dataBtns);
+  panel.appendChild(dataSection);
+
   overlay.appendChild(panel);
   host.appendChild(overlay);
 

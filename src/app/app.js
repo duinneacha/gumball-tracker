@@ -97,6 +97,7 @@ export function createApp(rootElement) {
 
   const autoCheckInSettingsRef = { current: { enabled: false, proximityMeters: 50, dwellSeconds: 30 } };
   const autoCheckInRef = { current: null };
+  const maintenanceLocationsRef = { current: [] };
 
   const maintenanceFilterOptionsRef = {
     current: {
@@ -437,6 +438,34 @@ export function createApp(rootElement) {
         autoCheckInSettingsRef.current = { ...s };
       },
       onClose: closeSettings,
+      onExportBackup: async () => {
+        const data = await exportAllData();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `gumball-backup-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      onImportBackup: async (file) => {
+        try {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          const { importFromJson } = await import("../storage/seed.js");
+          const result = await importFromJson(json);
+          if (typeof onImportSuccessRef.current === "function") {
+            await onImportSuccessRef.current();
+          }
+          showSnackbar(
+            snackbarHost,
+            result.kind === "full" ? "Full backup restored." : `Imported ${result.count} location(s).`,
+            { duration: 4000 }
+          );
+        } catch (err) {
+          showSnackbar(snackbarHost, err instanceof Error ? err.message : "Import failed.", { duration: 5000 });
+        }
+      },
     });
   }
   onOpenSettingsRef.current = openSettings;
@@ -602,10 +631,39 @@ export function createApp(rootElement) {
         const assignedRunIds = new Set(
           (runLocations || []).filter((rl) => rl.locationId === location.id).map((rl) => rl.runId)
         );
+        const openMaintenanceSheet = (loc) => {
+          mapController.setSelectedLocationId(loc.id);
+          const assigned = new Set(
+            (runLocations || []).filter((rl) => rl.locationId === loc.id).map((rl) => rl.runId)
+          );
+          bottomSheet.open(loc, {
+            context: "maintenance",
+            runs: runs || [],
+            selectedRunIds: assigned,
+            allLocations: maintenanceLocationsRef.current,
+            onNavigateToLocation: (nextLoc) => openMaintenanceSheet(nextLoc),
+            onRunToggle: async (runId, checked) => {
+              if (checked) {
+                await addLocationToRun(runId, loc.id);
+                const run = (runs || []).find((r) => r.id === runId);
+                showSnackbar(snackbarHost, `Added to ${run?.name ?? runId}`);
+              } else {
+                await removeLocationFromRun(runId, loc.id);
+                const run = (runs || []).find((r) => r.id === runId);
+                showSnackbar(snackbarHost, `Removed from ${run?.name ?? runId}`);
+              }
+              if (state.maintenanceFilters.unassignedOnly && typeof refreshMaintenanceMapRef.current === "function") {
+                await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+              }
+            },
+          });
+        };
         bottomSheet.open(location, {
           context: "maintenance",
           runs: runs || [],
           selectedRunIds: assignedRunIds,
+          allLocations: maintenanceLocationsRef.current,
+          onNavigateToLocation: openMaintenanceSheet,
           onRunToggle: async (runId, checked) => {
             if (checked) {
               await addLocationToRun(runId, location.id);
@@ -770,6 +828,19 @@ export function createApp(rootElement) {
     ]);
     const assignedLocationIds = new Set((runLocations || []).map((rl) => rl.locationId));
     const filters = state.maintenanceFilters;
+    const statusFilters = { active: filters.active, archived: filters.archived, deleted: filters.deleted };
+    let visible = Array.isArray(locations) ? locations : [];
+    visible = visible.filter((loc) => statusFilters[loc.status] === true);
+    if (filters.unassignedOnly) {
+      visible = visible.filter((loc) => !assignedLocationIds.has(loc.id));
+    }
+    const searchQuery = (filters.searchQuery ?? "").trim().toLowerCase();
+    if (searchQuery) {
+      visible = visible.filter((loc) =>
+        loc.name != null && String(loc.name).toLowerCase().includes(searchQuery)
+      );
+    }
+    maintenanceLocationsRef.current = visible;
     mapController.renderLocations(locations, {
       forceFitBounds: opts.forceFitBounds !== false,
       useCircleMarkers: true,

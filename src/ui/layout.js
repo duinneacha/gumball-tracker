@@ -159,60 +159,7 @@ function renderSidePanelContent(sidePanel, mode, options = {}) {
       wrap.appendChild(filterBar);
     }
 
-    const label = document.createElement("label");
-    label.className = "import-label";
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json,application/json";
-    input.className = "import-input";
-    input.setAttribute("aria-label", "Import seed or backup JSON file");
-    const span = document.createElement("span");
-    span.textContent = "Import seed / backup";
-    label.appendChild(input);
-    label.appendChild(span);
-    wrap.appendChild(label);
-
-    if (typeof onExportBackup === "function") {
-      const exportBtn = document.createElement("button");
-      exportBtn.type = "button";
-      exportBtn.className = "export-backup-btn";
-      exportBtn.textContent = "Export Backup JSON";
-      exportBtn.addEventListener("click", () => onExportBackup());
-      wrap.appendChild(exportBtn);
-    }
-
-    const status = document.createElement("p");
-    status.className = "import-status";
-    status.setAttribute("aria-live", "polite");
-    wrap.appendChild(status);
     sidePanel.appendChild(wrap);
-
-    input.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      status.textContent = "Importing…";
-      status.removeAttribute("class");
-      status.className = "import-status";
-      try {
-        const text = await file.text();
-        const json = JSON.parse(text);
-        const { importFromJson } = await import("../storage/seed.js");
-        const result = await importFromJson(json);
-        if (result.kind === "full") {
-          status.textContent = "Full backup restored.";
-        } else {
-          status.textContent = `Imported ${result.count} location(s).`;
-        }
-        status.className = "import-status import-status-ok";
-        if (typeof onImportSuccessRef?.current === "function") {
-          await onImportSuccessRef.current();
-        }
-      } catch (err) {
-        status.textContent = err instanceof Error ? err.message : "Import failed.";
-        status.className = "import-status import-status-err";
-      }
-      input.value = "";
-    });
   }
 }
 

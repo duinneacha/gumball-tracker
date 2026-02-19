@@ -72,15 +72,6 @@ export function renderDashboard(container, options) {
     card5.appendChild(resumeBtn);
   } else {
     card5.innerHTML = `<span class="dashboard-card-label">Resume Last Run</span><span class="dashboard-card-value dashboard-card-value--muted">No recent run.</span>`;
-    const createLink = document.createElement("button");
-    createLink.type = "button";
-    createLink.className = "dashboard-btn-link";
-    createLink.textContent = "Create or select a run";
-    createLink.addEventListener("click", () => {
-      if (typeof onOpenRunManagement === "function") onOpenRunManagement();
-      else if (typeof onGoToOperation === "function") onGoToOperation();
-    });
-    card5.appendChild(createLink);
   }
 
   const historyBtnWrap = document.createElement("div");
