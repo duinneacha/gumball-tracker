@@ -63,7 +63,7 @@ body {
 }
 
 .mode-btn.active {
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
 }
 
@@ -86,7 +86,7 @@ body {
 }
 
 .run-select:focus {
-  outline: 2px solid #f97316;
+  outline: 2px solid #ef4444;
   outline-offset: 2px;
 }
 
@@ -200,12 +200,12 @@ body {
 }
 
 .dashboard-btn-primary {
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
 }
 
 .dashboard-btn-primary:hover {
-  background-color: #ea580c;
+  background-color: #dc2626;
 }
 
 .dashboard-btn-secondary {
@@ -234,13 +234,13 @@ body {
   font-size: 0.9rem;
   background: none;
   border: none;
-  color: #f97316;
+  color: #ef4444;
   cursor: pointer;
   text-decoration: underline;
 }
 
 .dashboard-btn-link:hover {
-  color: #ea580c;
+  color: #dc2626;
 }
 
 .dashboard-card-resume .dashboard-btn,
@@ -310,7 +310,7 @@ body {
 .stat-row .bar {
   height: 100%;
   min-width: 2px;
-  background-color: #f97316;
+  background-color: #ef4444;
   border-radius: 4px;
   transition: width 0.2s ease;
 }
@@ -730,14 +730,14 @@ body {
 }
 
 .maintenance-toggle.active {
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
-  border-color: #ea580c;
+  border-color: #dc2626;
 }
 
 .maintenance-toggle.active:hover {
-  background-color: #ea580c;
-  border-color: #c2410c;
+  background-color: #dc2626;
+  border-color: #b91c1c;
 }
 
 .side-panel {
@@ -780,9 +780,9 @@ body {
 }
 
 .filter-chip.active {
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
-  border-color: #ea580c;
+  border-color: #dc2626;
 }
 
 .filter-unassigned-label {
@@ -799,14 +799,14 @@ body {
   font-size: 0.85rem;
   font-weight: 500;
   border-radius: 6px;
-  border: 1px solid #f97316;
-  background-color: #fff7ed;
-  color: #ea580c;
+  border: 1px solid #ef4444;
+  background-color: #fef2f2;
+  color: #dc2626;
   cursor: pointer;
 }
 
 .maintenance-runs-btn:hover {
-  background-color: #ffedd5;
+  background-color: #fee2e2;
 }
 
 .filter-search {
@@ -851,7 +851,7 @@ body {
 }
 .side-panel-maintenance .import-label span {
   padding: 0.4rem 0.75rem;
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
   border-radius: 6px;
   font-weight: 500;
@@ -904,7 +904,7 @@ body {
   padding: 0.25rem 0.5rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #f97316;
+  color: #ef4444;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -912,7 +912,7 @@ body {
 }
 
 .snackbar-undo:hover {
-  background-color: rgba(249, 115, 22, 0.15);
+  background-color: rgba(239, 68, 68, 0.15);
 }
 
 .fab {
@@ -923,7 +923,7 @@ body {
   height: 3.5rem;
   border-radius: 999px;
   border: none;
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
   font-weight: 700;
   font-size: 1.4rem;
@@ -1082,12 +1082,12 @@ body {
 }
 
 .bottom-sheet-btn-primary {
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
 }
 
 .bottom-sheet-btn-primary:hover {
-  background-color: #ea580c;
+  background-color: #dc2626;
 }
 
 .bottom-sheet-btn-secondary {
@@ -1320,7 +1320,7 @@ body {
   padding: 0.6rem 1rem;
   font-size: 1rem;
   font-weight: 600;
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
   border: none;
   border-radius: 8px;
@@ -1329,7 +1329,7 @@ body {
 }
 
 .settings-save-btn:hover {
-  background-color: #ea580c;
+  background-color: #dc2626;
 }
 
 .settings-import-input {
@@ -1666,12 +1666,12 @@ body {
 }
 
 .run-mgmt-btn-primary {
-  background-color: #f97316;
+  background-color: #ef4444;
   color: #111827;
 }
 
 .run-mgmt-btn-primary:hover {
-  background-color: #ea580c;
+  background-color: #dc2626;
 }
 
 .run-mgmt-btn-secondary {

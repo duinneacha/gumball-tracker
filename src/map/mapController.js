@@ -105,8 +105,8 @@ export function createMapController(container, initialState) {
         color = suggestionStroke;
         fillOpacity = 0.9;
       } else {
-        fillColor = isVisited ? visitedFill : (isSelected ? "#ea580c" : "#f97316");
-        color = isVisited ? visitedStroke : "#c2410c";
+        fillColor = isVisited ? visitedFill : (isSelected ? "#dc2626" : "#ef4444");
+        color = isVisited ? visitedStroke : "#b91c1c";
         fillOpacity = isVisited ? 0.65 : 0.9;
       }
       l.setStyle({ radius, weight, fillColor, color, fillOpacity });
@@ -116,8 +116,8 @@ export function createMapController(container, initialState) {
       const isVisited = visitedSet.has(loc.id);
       const isSuggestion = suggestionSet.has(loc.id);
       const radius = isSuggestion ? suggestionRadius : baseRadius;
-      const fillColor = isSuggestion ? suggestionFill : (isVisited ? visitedFill : "#f97316");
-      const color = isSuggestion ? suggestionStroke : (isVisited ? visitedStroke : "#c2410c");
+      const fillColor = isSuggestion ? suggestionFill : (isVisited ? visitedFill : "#ef4444");
+      const color = isSuggestion ? suggestionStroke : (isVisited ? visitedStroke : "#b91c1c");
       const layer = useCircleMarkers
         ? L.circleMarker([loc.latitude, loc.longitude], {
             radius,
@@ -215,8 +215,8 @@ export function createMapController(container, initialState) {
       const isVisited = l._isVisited === true;
       const radius = selected ? (isSuggestion ? suggestionRadius : hoverRadius) : (isSuggestion ? suggestionRadius : baseRadius);
       const weight = selected ? selectedWeight : (isSuggestion ? 2 : defaultWeight);
-      const fillColor = isSuggestion ? "#3b82f6" : (selected ? "#ea580c" : (isVisited ? "#9ca3af" : "#f97316"));
-      const color = isSuggestion ? "#ffffff" : (isVisited ? "#6b7280" : "#c2410c");
+      const fillColor = isSuggestion ? "#3b82f6" : (selected ? "#dc2626" : (isVisited ? "#9ca3af" : "#ef4444"));
+      const color = isSuggestion ? "#ffffff" : (isVisited ? "#6b7280" : "#b91c1c");
       l.setStyle({ radius, weight, fillColor, color, fillOpacity: isVisited && !isSuggestion ? 0.65 : 0.9 });
     };
     if (prev && layerById[prev]) {
