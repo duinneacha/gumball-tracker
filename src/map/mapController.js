@@ -33,6 +33,13 @@ export function createMapController(container, initialState) {
   const TOUCH_MOVE_THRESHOLD_PX = 15;
   const TOUCH_CLICK_SUPPRESS_MS = 400;
 
+  // Add-mode state
+  const addModeLayer = L.featureGroup();
+  let pendingMarker = null;
+  let addModeHandler = null;
+  let addModeBanner = null;
+  let addModeZoomListener = null;
+
   // GPS "You Are Here" marker (PRD V2.0) – separate layer, no interaction
   const gpsLayer = L.featureGroup();
   let gpsMarker = null;
@@ -345,6 +352,60 @@ export function createMapController(container, initialState) {
     return lastGpsPosition ? { lat: lastGpsPosition.lat, lng: lastGpsPosition.lng } : null;
   }
 
+  function enterAddMode(onDoubleClick) {
+    map.doubleClickZoom.disable();
+    container.classList.add("add-mode");
+
+    addModeBanner = document.createElement("div");
+    addModeBanner.className = "map-add-mode-banner";
+    container.appendChild(addModeBanner);
+
+    function updateBanner() {
+      const zoom = map.getZoom();
+      if (zoom < 17) {
+        addModeBanner.textContent = "Zoom in more to place a marker";
+        addModeBanner.classList.add("warn");
+      } else {
+        addModeBanner.textContent = "Double-tap to place a location marker";
+        addModeBanner.classList.remove("warn");
+      }
+    }
+    addModeZoomListener = updateBanner;
+    map.on("zoomend", updateBanner);
+    updateBanner();
+
+    addModeHandler = (e) => onDoubleClick(e.latlng);
+    map.on("dblclick", addModeHandler);
+
+    if (!map.hasLayer(addModeLayer)) addModeLayer.addTo(map);
+  }
+
+  function exitAddMode() {
+    map.doubleClickZoom.enable();
+    container.classList.remove("add-mode");
+    if (addModeHandler) { map.off("dblclick", addModeHandler); addModeHandler = null; }
+    if (addModeZoomListener) { map.off("zoomend", addModeZoomListener); addModeZoomListener = null; }
+    if (addModeBanner) { addModeBanner.remove(); addModeBanner = null; }
+    hidePendingMarker();
+  }
+
+  function showPendingMarker(latlng) {
+    hidePendingMarker();
+    pendingMarker = L.circleMarker([latlng.lat, latlng.lng], {
+      radius: 10,
+      weight: 3,
+      color: "#f97316",
+      fillColor: "#fed7aa",
+      fillOpacity: 0.9,
+      className: "pending-location-marker",
+    });
+    addModeLayer.addLayer(pendingMarker);
+  }
+
+  function hidePendingMarker() {
+    if (pendingMarker) { addModeLayer.removeLayer(pendingMarker); pendingMarker = null; }
+  }
+
   return {
     setMode,
     setRun,
@@ -356,6 +417,10 @@ export function createMapController(container, initialState) {
     removeGpsMarker,
     panToGps,
     getGpsPosition,
+    enterAddMode,
+    exitAddMode,
+    showPendingMarker,
+    hidePendingMarker,
     getLeafletMap() {
       return map;
     },

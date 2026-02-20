@@ -202,12 +202,16 @@ export function createBottomSheet(options) {
   let openContext = "maintenance";
   let openRunsOptions = null;
   let openOperationOptions = null;
+  let overrideSave = null;
+  let openCancelCreate = null;
 
   function doClose() {
     const wrapper = currentWrapper;
     currentWrapper = null;
     currentLocation = null;
     mode = "view";
+    overrideSave = null;
+    openCancelCreate = null;
     if (!wrapper) return;
     if (usedTablet) {
       sidePanel.innerHTML = "";
@@ -251,14 +255,23 @@ export function createBottomSheet(options) {
         renderContentArea();
       },
       onCancel: () => {
-        mode = "view";
-        renderContentArea();
+        if (openContext === "create") {
+          if (typeof openCancelCreate === "function") openCancelCreate();
+          doClose();
+        } else {
+          mode = "view";
+          renderContentArea();
+        }
       },
       onSave: (updated) => {
-        if (typeof onSave === "function") onSave(updated);
-        currentLocation = updated;
-        mode = "view";
-        renderContentArea();
+        if (typeof overrideSave === "function") {
+          overrideSave(updated);
+        } else {
+          if (typeof onSave === "function") onSave(updated);
+          currentLocation = updated;
+          mode = "view";
+          renderContentArea();
+        }
       },
       onPrevious: () => {
         const list = openRunsOptions?.allLocations;
@@ -303,8 +316,10 @@ export function createBottomSheet(options) {
     if (!location || typeof location !== "object") return;
 
     currentLocation = { ...location };
-    mode = "view";
-    openContext = openOptions.context === "operation" ? "operation" : (openOptions.context === "disruption" ? "disruption" : "maintenance");
+    openContext = openOptions.context === "operation" ? "operation" : (openOptions.context === "disruption" ? "disruption" : (openOptions.context === "create" ? "create" : "maintenance"));
+    mode = openContext === "create" ? "edit" : "view";
+    overrideSave = typeof openOptions.onSave === "function" ? openOptions.onSave : null;
+    openCancelCreate = typeof openOptions.onCancelCreate === "function" ? openOptions.onCancelCreate : null;
     openOperationOptions = (openContext === "operation" || openContext === "disruption") ? { isVisited: openOptions.isVisited } : null;
     openRunsOptions = (openContext === "maintenance" || openContext === "operation") ? {
       runs: openOptions.runs || [],

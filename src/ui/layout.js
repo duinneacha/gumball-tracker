@@ -347,6 +347,7 @@ export function createShellLayout(root, options) {
   root.appendChild(app);
 
   let currentMode = initialMode;
+  let addModeActive = false;
 
   function isSmallScreen() {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
@@ -366,7 +367,27 @@ export function createShellLayout(root, options) {
   function updateFabVisibility() {
     const runActive = operationOptionsRef?.current?.selectedRunId != null;
     const inDisruption = disruptionRef?.current?.isDisruptionMode === true;
-    fab.hidden = currentMode !== "operation" || !runActive || inDisruption;
+
+    if (currentMode === "maintenance") {
+      fab.hidden = false;
+      if (addModeActive) {
+        fab.textContent = "×";
+        fab.setAttribute("aria-label", "Cancel add location");
+        fab.className = "fab fab-cancel";
+      } else {
+        fab.textContent = "+";
+        fab.setAttribute("aria-label", "Add location");
+        fab.className = "fab fab-add";
+      }
+    } else if (currentMode === "operation") {
+      fab.hidden = !runActive || inDisruption;
+      fab.textContent = "!";
+      fab.setAttribute("aria-label", "Disruption");
+      fab.className = "fab";
+    } else {
+      fab.hidden = true;
+      fab.className = "fab";
+    }
   }
   updateDashboardVisibility();
   renderSidePanelContent(sidePanel, initialMode, { onImportSuccessRef, maintenanceFilterOptionsRef, operationOptionsRef });
@@ -451,6 +472,10 @@ export function createShellLayout(root, options) {
     },
     setGpsActive,
     setOnCenterOnMe,
+    setAddMode(active) {
+      addModeActive = Boolean(active);
+      updateFabVisibility();
+    },
     setMode,
     refreshSidePanel() {
       updateDashboardVisibility();

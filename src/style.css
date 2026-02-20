@@ -931,6 +931,54 @@ body {
   cursor: pointer;
 }
 
+.fab-add {
+  background-color: #22c55e;
+  color: #fff;
+}
+
+.fab-cancel {
+  background-color: #ef4444;
+  color: #fff;
+}
+
+/* Add-mode crosshair cursor */
+.leaflet-container.add-mode,
+.leaflet-container.add-mode .leaflet-interactive {
+  cursor: crosshair !important;
+}
+
+/* Add-mode hint banner (inside map container) */
+.map-add-mode-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 800;
+  background: rgba(34, 197, 94, 0.92);
+  color: #fff;
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.map-add-mode-banner.warn {
+  background: rgba(245, 158, 11, 0.92);
+}
+
+/* Pending marker pulse animation */
+.pending-location-marker {
+  animation: pending-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pending-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 /* Bottom sheet: mobile sliding panel */
 .bottom-sheet-host {
   position: fixed;

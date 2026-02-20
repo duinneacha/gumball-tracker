@@ -44,6 +44,34 @@ import { createAutoCheckInController } from "../domain/autoCheckIn.js";
 
 const LAST_RUN_KEY = "gumball-lastRunId";
 
+async function checkNominatimProximity(lat, lng) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json&zoom=18`;
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(5000),
+      headers: { "User-Agent": "GumballTracker/1.0" },
+    });
+    if (!resp.ok) return { valid: true, offline: true };
+    const data = await resp.json();
+    const cls = data.class ?? "";
+    const type = data.type ?? "";
+    const WATER_CLASSES = ["natural", "waterway", "water"];
+    const WATER_TYPES = ["water", "bay", "sea", "ocean", "coastline", "beach", "river", "lake", "pond", "wetland"];
+    if (WATER_CLASSES.includes(cls) && WATER_TYPES.some((t) => type.includes(t))) {
+      return { valid: false, reason: "Cannot place a marker here — not near a road or building." };
+    }
+    const address = data.address ?? {};
+    const hasRoad = !!(address.road || address.pedestrian || address.footway || address.path);
+    const hasBuilding = !!(address.house_number || address.building || address.amenity || address.shop);
+    if (cls === "natural" && !hasRoad && !hasBuilding) {
+      return { valid: true, warning: true, reason: "Location may not be near a road or building — place carefully." };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: true, offline: true };
+  }
+}
+
 // Simple enum for app modes
 const MODES = {
   DASHBOARD: "dashboard",
@@ -88,6 +116,7 @@ export function createApp(rootElement) {
     selectedRunId: null,
     runSession: null,
     isDisruptionMode: false,
+    isAddMode: false,
     gpsWatchId: null,
     currentPosition: null,
     gpsAvailable: false,
@@ -315,6 +344,7 @@ export function createApp(rootElement) {
   const shell = createShellLayout(rootElement, {
     initialMode: state.mode,
     onModeChange: async (mode) => {
+      if (state.isAddMode) exitAddMode();
       state.mode = mode;
       mapController.setMode(mode);
       if (mode !== "maintenance") {
@@ -348,6 +378,7 @@ export function createApp(rootElement) {
         await refreshOperationMapRef.current();
       }
       if (mode === MODES.OPERATION && state.selectedRunId) startWatchingGPS();
+      onFabClickRef.current = mode === MODES.MAINTENANCE ? toggleAddMode : enterDisruption;
       shell.updateHeaderOperation();
       shell.refreshSidePanel();
       if (mode === MODES.MAINTENANCE || mode === MODES.OPERATION) {
@@ -648,6 +679,7 @@ export function createApp(rootElement) {
     mode: state.mode,
     selectedRunId: state.selectedRunId,
     onLocationSelected: async (location) => {
+      if (state.isAddMode) return;
       if (state.mode === MODES.MAINTENANCE) {
         mapController.setSelectedLocationId(location.id);
         const [runs, runLocations] = await Promise.all([
@@ -1179,6 +1211,82 @@ export function createApp(rootElement) {
     }
     refreshOperationMapRef.current?.({ forceFitBounds: false });
     shell.refreshSidePanel();
+  }
+
+  async function onMapDoubleClick(latlng) {
+    const zoom = mapController.getLeafletMap().getZoom();
+    if (zoom < 17) {
+      showSnackbar(snackbarHost, "Zoom in to building level to place a marker", { duration: 3000 });
+      return;
+    }
+    const proximity = await checkNominatimProximity(latlng.lat, latlng.lng);
+    if (!proximity.valid) {
+      showSnackbar(snackbarHost, proximity.reason ?? "Cannot place a marker here", { duration: 4000 });
+      return;
+    }
+    if (proximity.offline) {
+      showSnackbar(snackbarHost, "Location check unavailable (offline?) — place carefully", { duration: 3000 });
+    } else if (proximity.warning) {
+      showSnackbar(snackbarHost, proximity.reason, { duration: 3000 });
+    }
+
+    mapController.showPendingMarker(latlng);
+
+    const newId = `loc-${Date.now()}`;
+    const tempLocation = {
+      id: newId,
+      latitude: latlng.lat,
+      longitude: latlng.lng,
+      name: "",
+      serviceFrequency: "adhoc",
+      productType: "",
+      notes: "",
+      status: "active",
+    };
+
+    bottomSheet.open(tempLocation, {
+      context: "create",
+      onSave: async (updatedLocation) => {
+        if (!updatedLocation?.name?.trim()) return;
+        const location = {
+          id: newId,
+          latitude: latlng.lat,
+          longitude: latlng.lng,
+          name: updatedLocation.name.trim(),
+          serviceFrequency: updatedLocation.serviceFrequency ?? "adhoc",
+          productType: updatedLocation.productType ?? "",
+          notes: updatedLocation.notes ?? "",
+          status: "active",
+        };
+        await putEntity("locations", location);
+        mapController.hidePendingMarker();
+        bottomSheet.close();
+        await refreshMaintenanceMap({ forceFitBounds: false });
+        showSnackbar(snackbarHost, `"${location.name}" added`);
+      },
+      onCancelCreate: () => {
+        mapController.hidePendingMarker();
+      },
+    });
+  }
+
+  function enterAddMode() {
+    state.isAddMode = true;
+    shell.setAddMode(true);
+    mapController.enterAddMode(onMapDoubleClick);
+    onFabClickRef.current = toggleAddMode;
+  }
+
+  function exitAddMode() {
+    state.isAddMode = false;
+    shell.setAddMode(false);
+    mapController.exitAddMode();
+    onFabClickRef.current = state.mode === MODES.MAINTENANCE ? toggleAddMode : enterDisruption;
+  }
+
+  function toggleAddMode() {
+    if (state.isAddMode) exitAddMode();
+    else enterAddMode();
   }
 
   onFabClickRef.current = enterDisruption;
