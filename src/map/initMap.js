@@ -21,6 +21,7 @@ export function initMap(container) {
   const map = L.map(container, {
     center: [53.4, -8], // Centre of Ireland
     zoom: 8,
+    tap: false, // custom touch handlers in mapController.js handle tap detection
   });
 
   // Basic tile layer; can be swapped later if needed.

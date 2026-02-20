@@ -947,7 +947,8 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  max-height: 85%;
+  max-height: 85vh;   /* fallback */
+  max-height: 85dvh;  /* preferred: accounts for dynamic browser chrome */
   background-color: #ffffff;
   border-radius: 12px 12px 0 0;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
