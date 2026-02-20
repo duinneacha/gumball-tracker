@@ -32,7 +32,7 @@ function renderViewMode(location, callbacks, context = "maintenance", runsOption
   const isDisruption = context === "disruption";
   const isReadOnlyWithMarkVisited = isOperation || isDisruption;
   const isVisited = operationOptions?.isVisited === true;
-  const showRunsSection = context === "maintenance" && runsOptions && Array.isArray(runsOptions.runs) && runsOptions.runs.length > 0;
+  const showRunsSection = (context === "maintenance" || context === "operation") && runsOptions && Array.isArray(runsOptions.runs) && runsOptions.runs.length > 0;
 
   let runsSectionHtml = "";
   if (showRunsSection) {
@@ -306,7 +306,7 @@ export function createBottomSheet(options) {
     mode = "view";
     openContext = openOptions.context === "operation" ? "operation" : (openOptions.context === "disruption" ? "disruption" : "maintenance");
     openOperationOptions = (openContext === "operation" || openContext === "disruption") ? { isVisited: openOptions.isVisited } : null;
-    openRunsOptions = openContext === "maintenance" ? {
+    openRunsOptions = (openContext === "maintenance" || openContext === "operation") ? {
       runs: openOptions.runs || [],
       selectedRunIds: openOptions.selectedRunIds instanceof Set ? openOptions.selectedRunIds : new Set(openOptions.selectedRunIds || []),
       onRunToggle: openOptions.onRunToggle,

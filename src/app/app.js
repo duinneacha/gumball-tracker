@@ -51,6 +51,22 @@ const MODES = {
   OPERATION: "operation",
 };
 
+function buildLocationRunColours(runLocations, runs) {
+  const runColourById = Object.fromEntries((runs || []).map((r) => [r.id, r.colour ?? "#ef4444"]));
+  const best = {};
+  for (const rl of (runLocations || [])) {
+    const t = rl.assignedAt ?? 0;
+    if (!best[rl.locationId] || t > best[rl.locationId].assignedAt) {
+      best[rl.locationId] = { runId: rl.runId, assignedAt: t };
+    }
+  }
+  const result = {};
+  for (const [locId, { runId }] of Object.entries(best)) {
+    if (runColourById[runId]) result[locId] = runColourById[runId];
+  }
+  return result;
+}
+
 function formatLastVisit(visitedAt, locationName) {
   if (!visitedAt) return "No visits yet";
   const name = locationName || "Unknown location";
@@ -134,8 +150,8 @@ export function createApp(rootElement) {
     runManagementPanelInstance = createRunManagementPanel(host, {
       runsRef: runManagementRunsRef,
       onClose: closeRunManagement,
-      onCreateRun: async (name) => {
-        await createRunFromName(name);
+      onCreateRun: async (name, colour) => {
+        await createRunFromName(name, colour);
         await refreshRunList();
         operationOptionsRef.current.runs = await getAllRuns();
         shell.updateHeaderOperation();
@@ -144,12 +160,18 @@ export function createApp(rootElement) {
           await refreshMaintenanceMapRef.current({ forceFitBounds: false });
         }
       },
-      onUpdateRun: async (runId, newName) => {
-        await updateRun(runId, newName);
+      onUpdateRun: async (runId, newName, newColour) => {
+        await updateRun(runId, newName, newColour);
         await refreshRunList();
         operationOptionsRef.current.runs = await getAllRuns();
         shell.updateHeaderOperation();
         showSnackbar(snackbarHost, "Run updated");
+        if (typeof refreshMaintenanceMapRef.current === "function") {
+          await refreshMaintenanceMapRef.current({ forceFitBounds: false });
+        }
+        if (typeof refreshOperationMapRef.current === "function") {
+          await refreshOperationMapRef.current({ forceFitBounds: false });
+        }
       },
       onDeleteRun: async (runId) => {
         await deleteRunAndLinks(runId);
@@ -438,6 +460,10 @@ export function createApp(rootElement) {
         autoCheckInSettingsRef.current = { ...s };
       },
       onClose: closeSettings,
+      onOpenRunManagement: () => {
+        closeSettings();
+        openRunManagement();
+      },
       onExportBackup: async () => {
         const data = await exportAllData();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -652,7 +678,7 @@ export function createApp(rootElement) {
                 const run = (runs || []).find((r) => r.id === runId);
                 showSnackbar(snackbarHost, `Removed from ${run?.name ?? runId}`);
               }
-              if (state.maintenanceFilters.unassignedOnly && typeof refreshMaintenanceMapRef.current === "function") {
+              if (typeof refreshMaintenanceMapRef.current === "function") {
                 await refreshMaintenanceMapRef.current({ forceFitBounds: false });
               }
             },
@@ -662,9 +688,25 @@ export function createApp(rootElement) {
       }
       if (state.mode === MODES.OPERATION && !state.isDisruptionMode) {
         mapController.setSelectedLocationId(location.id);
+        const [opRuns, opRunLocations] = await Promise.all([
+          getAllRuns(),
+          getAllFromStore("runLocations"),
+        ]);
+        const opAssigned = new Set(
+          (opRunLocations || []).filter((rl) => rl.locationId === location.id).map((rl) => rl.runId)
+        );
         bottomSheet.open(location, {
           context: "operation",
           isVisited: state.runSession?.visitedLocationIds?.has(location.id) ?? false,
+          runs: opRuns || [],
+          selectedRunIds: opAssigned,
+          onRunToggle: async (runId, checked) => {
+            if (checked) await addLocationToRun(runId, location.id);
+            else await removeLocationFromRun(runId, location.id);
+            if (typeof refreshOperationMapRef.current === "function") {
+              await refreshOperationMapRef.current({ forceFitBounds: false });
+            }
+          },
         });
       }
       if (state.mode === MODES.OPERATION && state.isDisruptionMode) {
@@ -802,11 +844,13 @@ export function createApp(rootElement) {
 
   async function refreshMaintenanceMap(opts = {}) {
     if (state.mode !== MODES.MAINTENANCE) return;
-    const [locations, runLocations] = await Promise.all([
+    const [locations, runLocations, runs] = await Promise.all([
       getAllFromStore("locations"),
       getAllFromStore("runLocations"),
+      getAllRuns(),
     ]);
     const assignedLocationIds = new Set((runLocations || []).map((rl) => rl.locationId));
+    const locationRunColours = buildLocationRunColours(runLocations, runs);
     const filters = state.maintenanceFilters;
     const statusFilters = { active: filters.active, archived: filters.archived, deleted: filters.deleted };
     let visible = Array.isArray(locations) ? locations : [];
@@ -832,6 +876,7 @@ export function createApp(rootElement) {
       unassignedOnly: filters.unassignedOnly,
       searchQuery: filters.searchQuery,
       assignedLocationIds,
+      locationRunColours,
     });
   }
 
@@ -845,7 +890,12 @@ export function createApp(rootElement) {
       shell.refreshSidePanel();
       return;
     }
-    const locations = await getLocationsForRun(state.selectedRunId);
+    const [locations, runLocations, runs] = await Promise.all([
+      getLocationsForRun(state.selectedRunId),
+      getAllFromStore("runLocations"),
+      getAllRuns(),
+    ]);
+    const locationRunColours = buildLocationRunColours(runLocations, runs);
     const session = state.runSession;
     const visitedIds = session?.visitedLocationIds ?? new Set();
     let suggestionLocationIds = null;
@@ -859,9 +909,10 @@ export function createApp(rootElement) {
       skipMaintenanceFilters: true,
       visitedLocationIds: visitedIds,
       suggestionLocationIds: suggestionLocationIds || undefined,
+      locationRunColours,
     });
-    const runs = operationOptionsRef.current.runs || [];
-    const run = runs.find((r) => r.id === state.selectedRunId);
+    const run = (runs || []).find((r) => r.id === state.selectedRunId);
+    operationOptionsRef.current.runs = runs || [];
     operationOptionsRef.current.runName = run?.name ?? "—";
     operationOptionsRef.current.visitedCount = visitedIds.size;
     operationOptionsRef.current.totalCount = locations.length;

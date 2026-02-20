@@ -14,7 +14,7 @@
  * @returns {{ destroy: () => void, setSettings: (s: object) => void }}
  */
 export function createSettingsPanel(host, options) {
-  const { initialSettings, onSave, onClose, onExportBackup, onImportBackup } = options;
+  const { initialSettings, onSave, onClose, onExportBackup, onImportBackup, onOpenRunManagement } = options;
   let currentSettings = {
     enabled: Boolean(initialSettings?.enabled),
     proximityMeters: clamp(Number(initialSettings?.proximityMeters) || 50, 20, 200),
@@ -197,6 +197,22 @@ export function createSettingsPanel(host, options) {
   }
   dataSection.appendChild(dataBtns);
   panel.appendChild(dataSection);
+
+  if (typeof onOpenRunManagement === "function") {
+    const runsSection = document.createElement("div");
+    runsSection.className = "settings-section";
+    runsSection.innerHTML = "<h3 class=\"settings-section-title\">Runs</h3>";
+    const manageBtn = document.createElement("button");
+    manageBtn.type = "button";
+    manageBtn.className = "settings-btn";
+    manageBtn.textContent = "Manage Runs";
+    manageBtn.addEventListener("click", () => {
+      onClose();
+      onOpenRunManagement();
+    });
+    runsSection.appendChild(manageBtn);
+    panel.appendChild(runsSection);
+  }
 
   overlay.appendChild(panel);
   host.appendChild(overlay);

@@ -26,6 +26,7 @@ export function createRunManagementPanel(host, options) {
   let formMode = "create"; // "create" | "edit"
   let editingRunId = null;
   let editingRunName = "";
+  let editingRunColour = "#3b82f6";
   let confirmingRun = null;
   let panelEl = null;
 
@@ -41,6 +42,7 @@ export function createRunManagementPanel(host, options) {
       formMode = "create";
       editingRunId = null;
       editingRunName = "";
+      editingRunColour = "#3b82f6";
       currentView = "form";
       render();
     });
@@ -69,6 +71,7 @@ export function createRunManagementPanel(host, options) {
         deleteBtn.setAttribute("aria-label", `Delete ${escapeHtml(run.name ?? run.id)}`);
         deleteBtn.textContent = "\uD83D\uDDD1\uFE0F";
         li.innerHTML = `
+          <span class="run-mgmt-colour-swatch" style="background:${escapeHtml(run.colour ?? '#3b82f6')}"></span>
           <span class="run-mgmt-run-name">${escapeHtml(run.name ?? run.id)}</span>
           <span class="run-mgmt-run-count">${run.locationCount ?? 0}</span>
         `;
@@ -78,6 +81,7 @@ export function createRunManagementPanel(host, options) {
           formMode = "edit";
           editingRunId = run.id;
           editingRunName = run.name ?? run.id;
+          editingRunColour = run.colour ?? "#3b82f6";
           currentView = "form";
           render();
         });
@@ -104,6 +108,10 @@ export function createRunManagementPanel(host, options) {
           <span class="run-mgmt-label">Run Name</span>
           <input type="text" name="runName" value="${escapeHtml(editingRunName)}" required autocomplete="off" />
         </label>
+        <label class="run-mgmt-field">
+          <span class="run-mgmt-label">Colour</span>
+          <input type="color" name="runColour" value="${escapeHtml(editingRunColour)}" />
+        </label>
         <div class="run-mgmt-form-actions">
           <button type="submit" class="run-mgmt-btn run-mgmt-btn-primary">Save</button>
           <button type="button" class="run-mgmt-btn run-mgmt-btn-secondary" data-action="cancel">Cancel</button>
@@ -113,16 +121,18 @@ export function createRunManagementPanel(host, options) {
     formWrap.querySelector("form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = formWrap.querySelector('[name="runName"]')?.value?.trim();
+      const colour = formWrap.querySelector('[name="runColour"]')?.value ?? editingRunColour;
       if (!name) return;
       try {
         if (formMode === "create") {
-          await onCreateRun?.(name);
+          await onCreateRun?.(name, colour);
         } else {
-          await onUpdateRun?.(editingRunId, name);
+          await onUpdateRun?.(editingRunId, name, colour);
         }
         currentView = "list";
         editingRunId = null;
         editingRunName = "";
+        editingRunColour = "#3b82f6";
         render();
       } catch (err) {
         // Caller may show snackbar; re-render to stay on form
@@ -133,6 +143,7 @@ export function createRunManagementPanel(host, options) {
       currentView = "list";
       editingRunId = null;
       editingRunName = "";
+      editingRunColour = "#3b82f6";
       render();
     });
     return formWrap;

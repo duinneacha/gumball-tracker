@@ -5,6 +5,17 @@
 import L from "leaflet";
 import { initMap } from "./initMap.js";
 
+function darkenHex(hex) {
+  if (!hex || hex.length < 7) return "#b91c1c";
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const dr = Math.round(r * 0.7).toString(16).padStart(2, "0");
+  const dg = Math.round(g * 0.7).toString(16).padStart(2, "0");
+  const db = Math.round(b * 0.7).toString(16).padStart(2, "0");
+  return `#${dr}${dg}${db}`;
+}
+
 export function createMapController(container, initialState) {
   const map = initMap(container);
   const onLocationSelected = initialState.onLocationSelected;
@@ -51,6 +62,7 @@ export function createMapController(container, initialState) {
     const visitedSet = opts.visitedLocationIds instanceof Set
       ? opts.visitedLocationIds
       : new Set(Array.isArray(opts.visitedLocationIds) ? opts.visitedLocationIds : []);
+    const locationRunColours = opts.locationRunColours ?? {};
 
     const inputCount = Array.isArray(locations) ? locations.length : 0;
     if (forceFitBounds) {
@@ -100,6 +112,7 @@ export function createMapController(container, initialState) {
       if (!useCircleMarkers || !l.setStyle) return;
       const radius = isSuggestion ? suggestionRadius : (isSelected ? selectedRadius : (isHovered ? hoverRadius : baseRadius));
       const weight = isSelected ? selectedWeight : (isSuggestion ? 2 : defaultWeight);
+      const runColour = locationRunColours[id] ?? null;
       let fillColor, color, fillOpacity;
       if (isSuggestion) {
         fillColor = suggestionFill;
@@ -107,11 +120,11 @@ export function createMapController(container, initialState) {
         fillOpacity = 0.9;
       } else if (isSelected && !isVisited) {
         fillColor = "#ffffff";
-        color = "#ef4444";
+        color = runColour ? darkenHex(runColour) : "#ef4444";
         fillOpacity = 1.0;
       } else {
-        fillColor = isVisited ? visitedFill : "#ef4444";
-        color = isVisited ? visitedStroke : "#b91c1c";
+        fillColor = isVisited ? visitedFill : (runColour ?? "#ef4444");
+        color = isVisited ? visitedStroke : (runColour ? darkenHex(runColour) : "#b91c1c");
         fillOpacity = isVisited ? 0.65 : 0.9;
       }
       l.setStyle({ radius, weight, fillColor, color, fillOpacity });
@@ -120,9 +133,10 @@ export function createMapController(container, initialState) {
     for (const loc of visible) {
       const isVisited = visitedSet.has(loc.id);
       const isSuggestion = suggestionSet.has(loc.id);
+      const runColour = locationRunColours[loc.id] ?? null;
       const radius = isSuggestion ? suggestionRadius : baseRadius;
-      const fillColor = isSuggestion ? suggestionFill : (isVisited ? visitedFill : "#ef4444");
-      const color = isSuggestion ? suggestionStroke : (isVisited ? visitedStroke : "#b91c1c");
+      const fillColor = isSuggestion ? suggestionFill : (isVisited ? visitedFill : (runColour ?? "#ef4444"));
+      const color = isSuggestion ? suggestionStroke : (isVisited ? visitedStroke : (runColour ? darkenHex(runColour) : "#b91c1c"));
       const layer = useCircleMarkers
         ? L.circleMarker([loc.latitude, loc.longitude], {
             radius,
@@ -137,6 +151,7 @@ export function createMapController(container, initialState) {
         layer._locationId = loc.id;
         layer._isVisited = isVisited;
         layer._isSuggestion = isSuggestion;
+        layer._runColour = runColour;
         layer.on("mouseover", () => {
           applyMarkerStyle(layer, loc.id, true, loc.id === selectedLocationId, visitedSet.has(loc.id), isSuggestion);
         });
@@ -219,6 +234,7 @@ export function createMapController(container, initialState) {
       if (!l.setStyle) return;
       const isSuggestion = l._isSuggestion === true;
       const isVisited = l._isVisited === true;
+      const runColour = l._runColour ?? null;
       const radius = selected ? (isSuggestion ? suggestionRadius : selectedRadius) : (isSuggestion ? suggestionRadius : baseRadius);
       const weight = selected ? selectedWeight : (isSuggestion ? 2 : defaultWeight);
       let fillColor, color, fillOpacity;
@@ -228,11 +244,11 @@ export function createMapController(container, initialState) {
         fillOpacity = 0.9;
       } else if (selected && !isVisited) {
         fillColor = "#ffffff";
-        color = "#ef4444";
+        color = runColour ? darkenHex(runColour) : "#ef4444";
         fillOpacity = 1.0;
       } else {
-        fillColor = isVisited ? "#9ca3af" : "#ef4444";
-        color = isVisited ? "#6b7280" : "#b91c1c";
+        fillColor = isVisited ? "#9ca3af" : (runColour ?? "#ef4444");
+        color = isVisited ? "#6b7280" : (runColour ? darkenHex(runColour) : "#b91c1c");
         fillOpacity = isVisited ? 0.65 : 0.9;
       }
       l.setStyle({ radius, weight, fillColor, color, fillOpacity });

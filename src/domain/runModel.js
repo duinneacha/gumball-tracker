@@ -2,8 +2,21 @@
 
 import { putEntity, getAllFromStore, deleteEntity } from "../storage/indexedDb.js";
 
-export function createRun({ id, name, active = true }) {
-  return { id, name, active };
+export const RUN_COLOUR_PALETTE = [
+  "#3b82f6", // blue
+  "#22c55e", // green
+  "#f97316", // orange
+  "#8b5cf6", // purple
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#eab308", // yellow
+  "#ef4444", // red
+  "#6366f1", // indigo
+  "#f59e0b", // amber
+];
+
+export function createRun({ id, name, active = true, colour = "#3b82f6" }) {
+  return { id, name, active, colour };
 }
 
 export async function saveRun(run) {
@@ -58,6 +71,7 @@ export async function addLocationToRun(runId, locationId) {
     id: runLocationId(runId, locationId),
     runId,
     locationId,
+    assignedAt: Date.now(),
   };
   await putEntity("runLocations", record);
 }
@@ -74,25 +88,34 @@ export async function removeLocationFromRun(runId, locationId) {
 /**
  * Create a new run with an auto-generated ID (PRD V2.3).
  * @param {string} name - Run name (required)
- * @returns {Promise<{ id: string, name: string, active: boolean }>}
+ * @param {string} [colour] - Hex colour; auto-assigned from palette if omitted
+ * @returns {Promise<{ id: string, name: string, active: boolean, colour: string }>}
  */
-export async function createRunFromName(name) {
+export async function createRunFromName(name, colour) {
   const id = `run-${Date.now()}`;
-  const run = createRun({ id, name: String(name).trim(), active: true });
+  let assignedColour = colour;
+  if (!assignedColour) {
+    const runs = await getAllRuns();
+    const usedColours = new Set((runs || []).map((r) => r.colour).filter(Boolean));
+    assignedColour = RUN_COLOUR_PALETTE.find((c) => !usedColours.has(c))
+      ?? RUN_COLOUR_PALETTE[(runs || []).length % RUN_COLOUR_PALETTE.length];
+  }
+  const run = createRun({ id, name: String(name).trim(), active: true, colour: assignedColour });
   await saveRun(run);
   return run;
 }
 
 /**
- * Update a run's name (PRD V2.3).
+ * Update a run's name and/or colour (PRD V2.3).
  * @param {string} runId
  * @param {string} newName
+ * @param {string} [newColour]
  */
-export async function updateRun(runId, newName) {
+export async function updateRun(runId, newName, newColour) {
   const runs = await getAllFromStore("runs");
   const run = (runs || []).find((r) => r.id === runId);
   if (!run) return;
-  const updated = { ...run, name: String(newName).trim() };
+  const updated = { ...run, name: String(newName).trim(), colour: newColour ?? run.colour };
   await putEntity("runs", updated);
 }
 

@@ -1364,6 +1364,21 @@ body {
   background-color: #d1d5db;
 }
 
+.settings-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background-color: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.settings-btn:hover {
+  background-color: #d1d5db;
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -1591,6 +1606,16 @@ body {
   min-width: 2rem;
 }
 
+.run-mgmt-colour-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.2);
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
 .run-mgmt-icon-btn {
   width: 2rem;
   height: 2rem;
@@ -1651,6 +1676,16 @@ body {
   font-size: 0.95rem;
   border: 1px solid #d1d5db;
   border-radius: 6px;
+}
+
+.run-mgmt-field input[type="color"] {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
 }
 
 .run-mgmt-form-actions {
